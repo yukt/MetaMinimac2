@@ -18,13 +18,12 @@ public:
     vector< double > PrevRightProb;
     vector< double > CurrentRightProb;
 
-    double Recom, Error, backgroundError;
+    double Recom, backgroundError;
     double JumpFix, JumpThreshold;
 
     MarkovModel()
     {
         Recom = 1e-5;
-        Error = 0.01;
         backgroundError = 1e-5;
         JumpThreshold = 1e-10;
         JumpFix = 1e10;

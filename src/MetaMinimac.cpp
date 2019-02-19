@@ -9,8 +9,25 @@ const int MAXBP = 999999999;
 
 int MetaMinimac::Analyze()
 {
-    ParseInputVCFFiles();
-    CheckSampleNameCompatibility();
+    if(!myUserVariables.CheckValidity()) return -1;
+
+
+    cout<<" ------------------------------------------------------------------------------"<<endl;
+    cout<<"                             INPUT VCF DOSAGE FILE                             "<<endl;
+    cout<<" ------------------------------------------------------------------------------"<<endl;
+
+    if (!ParseInputVCFFiles())
+    {
+        cout << "\n Program Exiting ... \n\n";
+        return -1;
+    }
+
+    if (!CheckSampleNameCompatibility())
+    {
+        cout << "\n Program Exiting ... \n\n";
+        return -1;
+    }
+
 
     OpenStreamInputDosageFiles(true);
     if (!OpenStreamOutputDosageFiles())
@@ -271,6 +288,7 @@ bool MetaMinimac::doesExistFile(String filename)
 
 bool MetaMinimac::LoadVariantInfo()
 {
+    cout<<"\n Scanning input VCFs for SNPs ... "<<endl;
     VariantList.clear();
     CommonTyped.clear();
     do
@@ -284,6 +302,7 @@ bool MetaMinimac::LoadVariantInfo()
 
     NoVariants = VariantList.size();
     NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
+    cout<<" -- Found " << NoSamples <<" samples on " << NoVariants <<" sites ("<< NoCommonTypedVariants <<" common typed)! "<<endl;
     return true;
 
 }
@@ -370,6 +389,11 @@ bool MetaMinimac::LoadLooDosage()
 
 int MetaMinimac::PerformFinalAnalysis()
 {
+    cout << endl;
+    cout << " ------------------------------------------------------------------------------" << endl;
+    cout << "                           META-IMPUTATION ANALYSIS                            " << endl;
+    cout << " ------------------------------------------------------------------------------" << endl;
+
 
     int maxVcfSample = 10;
     if (maxVcfSample >= NoSamples)
@@ -382,12 +406,15 @@ int MetaMinimac::PerformFinalAnalysis()
 
     batchNo = 0;
 
+    int start_time, time_tot;
+
     while(true)
     {
         batchNo++;
         EndSamId = StartSamId + (maxVcfSample) < NoSamples ? StartSamId + (maxVcfSample) : NoSamples;
-        printf("  Meta-Imputing Samples %d-%d [%0.0f%%] out of %d samples ...\n", StartSamId + 1, EndSamId,
-               100 * (float) EndSamId / NoSamples, NoSamples);
+        cout << "  Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
+
+        start_time = time(0);
 
         int NoSamplesThisBatch = EndSamId-StartSamId;
         Posterior.clear();
@@ -409,6 +436,10 @@ int MetaMinimac::PerformFinalAnalysis()
         OpenStreamInputDosageFiles(false);
         FlushPartialVcf(batchNo);
         CloseStreamInputDosageFiles();
+
+        time_tot = time(0) - start_time;
+        cout << "      Successful (" << time_tot % 60 << " seconds) !!! " << endl;
+
         StartSamId = EndSamId;
 
         if (StartSamId >= NoSamples)
@@ -436,6 +467,7 @@ void MetaMinimac::GetMetaEstimate(int Sample, int SampleInBatch)
 
 void MetaMinimac::FlushPartialVcf(int batchNo)
 {
+    cout << "      Saving in temporary VCF file ... " << endl;
     VcfPrintStringPointerLength=0;
     stringstream ss;
     ss << (batchNo);
@@ -782,6 +814,10 @@ void MetaMinimac::PrintWeightForHaplotype(int haploId)
 
 void MetaMinimac::AppendtoMainVcf()
 {
+    cout << endl;
+    cout << "  Appending to final output VCF File : " << myUserVariables.outfile + ".metaDose.vcf.gz" <<endl;
+
+    int start_time = time(0);
     VcfPrintStringPointerLength=0;
     vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf.gz", "a", InputFile::BGZF);
     vector<IFILE> vcfdosepartialList(batchNo);
@@ -834,6 +870,9 @@ void MetaMinimac::AppendtoMainVcf()
         remove(tempFileIndex.c_str());
     }
     ifclose(vcfdosepartial);
+
+    int time_tot = time(0) - start_time;
+    cout << "  Appending successful (" << time_tot % 60 << " seconds) !!!" << endl;
 }
 
 
