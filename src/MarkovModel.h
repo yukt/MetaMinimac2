@@ -22,7 +22,7 @@ public:
 
     MarkovModel()
     {
-        Recom = 2e-5;
+        Recom = 1e-5;
         backgroundError = 1e-5;
         JumpThreshold = 1e-10;
         JumpFix = 1e10;
