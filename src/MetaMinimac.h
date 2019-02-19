@@ -12,11 +12,14 @@ public:
     UserVariables myUserVariables;
     vector<String> InPrefixList;
     int NoInPrefix;
+    string finChromosome;
 
     vector<variant> VariantList;
     vector<variant> CommonTypedVariantList;
     vector<string> CommonGenotypeVariantNameList;
-    int NoVariants, NoCommonTypedVariants;
+    vector<bool> CommonTyped;
+    int NoHaplotypes, NoSamples;
+    int NoVariants, NoRead, NoCommonTypedVariants, CommonTypedVariantListCounter;
 
     // Variables for input dosage file stream and records
     vector<VcfFileReader*> InputDosageStream;
@@ -29,8 +32,28 @@ public:
 
     vector<HaplotypeSet> InputData;
 
-    vector<vector<double>> Weights;
-    vector<double> CurrentInitialProb;
+    // Process Part of Samples each time
+    int StartSamId, EndSamId;
+    vector<vector<vector<double>>> Posterior;
+
+    // Output files
+    IFILE vcfdosepartial, vcfweightpartial;
+    IFILE metaWeight;
+    char *VcfPrintStringPointer;
+    char *WeightPrintStringPointer;
+    int VcfPrintStringPointerLength, WeightPrintStringPointerLength;
+    int batchNo;
+
+    variant* CurrentVariant;
+    vector<float> CurrentMetaImputedDosage;
+    int NoVariantsImputed;
+
+    double CurrentHapDosageSum, CurrentHapDosageSumSq;
+    vector<double> HapDosageSum, HapDosageSumSq;
+    double CurrentAlleleFreq, CurrentRsq;
+
+
+
 
 
     int Analyze();
@@ -39,6 +62,7 @@ public:
     bool CheckSampleNameCompatibility();
     void OpenStreamInputDosageFiles(bool siteOnly);
     void CloseStreamInputDosageFiles();
+    bool OpenStreamOutputDosageFiles();
     string GetDosageFileFullName(String prefix);
     bool doesExistFile(String filename);
 
@@ -54,7 +78,24 @@ public:
     string GetEmpDosageFileFullName(String prefix);
 
     int PerformFinalAnalysis();
-    void GetMetaEstimate(int Sample);
+    void GetMetaEstimate(int Sample, int SampleInBatch);
+    void FlushPartialVcf(int batchNo);
+    void Initialize();
+
+    void AppendtoMainVcf();
+    void AppendtoMainWeightsFile();
+
+    void ReadCurrentDosageData();
+    void CreateMetaImputedData();
+    void MetaImpute(int Sample);
+    void PrintCurrentVariant();
+    void PrintMetaImputedData();
+    void PrintMetaWeight();
+
+    string CreateInfo(int i);
+    void PrintDiploidDosage(float &x, float &y);
+    void PrintHaploidDosage(float &x);
+    void PrintWeightForHaplotype(int haploId);
 
 };
 #endif //METAM_METAMINIMAC_H

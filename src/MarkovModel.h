@@ -1,58 +1,58 @@
 #ifndef METAM_MARKOVMODEL_H
 #define METAM_MARKOVMODEL_H
 
-#include "MarkovParameters.h"
+//#include "MarkovParameters.h"
 #include "MetaMinimac.h"
 
 using namespace std;
 
-class MarkovModel : public MarkovParameters
+class MarkovModel
 {
 public:
-    vector<double> InitialProb;
-    vector< vector<double> > TypedEmissionProb;
+    int NoVariants;
+    int NoInPrefix;
 
+    vector< double > InitProb;
     vector< vector<double> > LeftProb;
-    vector< vector<double> > RightProb;
-    vector< vector<double> > FinalProb;
+//    vector< vector<double> > RightProb;
+    vector< double > PrevRightProb;
+    vector< double > CurrentRightProb;
 
-//    void initialize(int Sample, MetaMinimac *const ThisStudy);
+    double Recom, Error, backgroundError;
+    double JumpFix, JumpThreshold;
+
+    MarkovModel()
+    {
+        Recom = 1e-5;
+        Error = 0.01;
+        backgroundError = 1e-5;
+        JumpThreshold = 1e-10;
+        JumpFix = 1e10;
+
+    };
+
+    void initialize(int Sample, MetaMinimac *const ThisStudy);
+    void walkLeft(int Sample, MetaMinimac *const ThisStudy);
+    void walkRight(int Sample, MetaMinimac *const ThisStudy, int SampleInBatch);
 };
 
-//class LogOddsModel
-//{
-//private:
-//
-//    int NoMarkers;
-//    int NoStudies;
-//    int SampleID;
-//    vector<vector<double> > LooDosageVal;
-//    vector<double> ChipGTVal;
-//
-//
-//public:
-//    void initialize(int SampleId, MetaMinimac *const ThisStudy);
-//    double  operator()(vector<double> x);
-//};
-//
-//
-//void logitTransform(vector<double> &From,
-//                    vector<double> &To)
-//{
-//
-//    double sum=1.0;
-//    int NoDimensions = (int)To.size();
-//    for(int i=0; i < (NoDimensions-1); i++) sum+=exp(From[i]);
-//    for(int i=0; i < (NoDimensions-1); i++)  To[i]=exp(From[i])/sum;
-//    To[NoDimensions-1]=1.0/sum;
-//
-//
-//    double checkSum=0.0;
-//    for(int i=0;i<To.size();i++)
-//        checkSum+=To[i];
-//    if(checkSum>1.0001)
-//        abort();
-//}
+class LogOddsModel
+{
+private:
+
+    int NoMarkers;
+    int NoStudies;
+    int SampleID;
+    vector<vector<double> > LooDosageVal;
+    vector<double> ChipGTVal;
+
+
+public:
+    void initialize(int SampleId, MetaMinimac *const ThisStudy);
+    double  operator()(vector<double> x);
+};
+
+
 
 
 

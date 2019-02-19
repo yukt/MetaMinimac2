@@ -18,7 +18,7 @@ int main(int argc, char ** argv)
                     {NULL,0,NULL,0}
             };
 
-    while ((c = getopt_long(argc, argv, "i:o:f:c:snhld",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "i:o:ld",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'i': myAnalysis.myUserVariables.inputFiles = optarg; break;
@@ -28,6 +28,8 @@ int main(int argc, char ** argv)
             default:  printf("[ERROR:] Unknown argument: %s\n", optarg);
         }
     }
+
+    myAnalysis.myUserVariables.CreateCommandLine(argc,argv);
 
     FILE *LogFile=NULL;
     if(log)

@@ -6,13 +6,13 @@
 class MarkovParameters
 {
 public:
-    int        NoMarker;
-    double     Recom,Error;
+    double     Recom,Error, backgroundError;
 
     MarkovParameters()
     {
         Recom = 1e-5;
-        Error = 1e-5;
+        Error = 0.01;
+        backgroundError = 1e-5;
     };
 };
 

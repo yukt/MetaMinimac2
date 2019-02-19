@@ -56,8 +56,8 @@ public:
 
     // Dosage Data
     vector<float> CurrentHapDosage;
-    vector<vector<double> > LooDosage;
-    vector<vector<double> > TypedGT;
+    vector<vector<float> > LooDosage;
+    vector<vector<float> > TypedGT;
 
 
     // FUNCTIONS
@@ -68,6 +68,7 @@ public:
     void        SortCommonGenotypeList                  (std::unordered_set<string> &CommonGenotypeVariantNameList, vector<string> &SortedCommonGenoList, vector<variant> &CommonTypedVariantList);
     bool        CheckSuffixFile                         (string prefix, const char* suffix, string &FinalName);
     void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype);
+    void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
 
 
     bool        GetSampleInformation                    (string filename);

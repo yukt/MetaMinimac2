@@ -234,7 +234,7 @@ void HaplotypeSet::SortCommonGenotypeList(std::unordered_set<string> &CommonGeno
     CommonTypedVariantList.resize(CommonGenotypeVariantNameList.size());
     LooDosage.clear();
     TypedGT.clear();
-    CurrentHapDosage.resize(numHaplotypes);
+//    CurrentHapDosage.resize(numHaplotypes);
     LooDosage.resize(numHaplotypes);
     TypedGT.resize(numHaplotypes);
     for(int i=0; i<numHaplotypes; i++)
@@ -289,7 +289,7 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
 
     LooDosage.clear();
     TypedGT.clear();
-    CurrentHapDosage.resize(numHaplotypes);
+//    CurrentHapDosage.resize(numHaplotypes);
     LooDosage.resize(numHaplotypes);
     TypedGT.resize(numHaplotypes);
     for(int i=0; i<numHaplotypes; i++)
@@ -337,6 +337,31 @@ void HaplotypeSet::LoadHapDoseVariant(VcfRecordGenotype &ThisGenotype)
         else
         {
             CurrentHapDosage[2*i] = atof(temp.c_str());
+        }
+
+    }
+}
+
+void HaplotypeSet::LoadHapDoseVariant(VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId)
+{
+    CurrentHapDosage.clear();
+    CurrentHapDosage.resize(2*(EndSamId-StartSamId));
+
+    for (int i = StartSamId; i<EndSamId; i++)
+    {
+        string temp=*ThisGenotype.getString("HDS",i);
+        char *end_str;
+
+        if(SampleNoHaplotypes[i]==2) {
+            char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
+            CurrentHapDosage[2*(i-StartSamId)] = atof(pch);
+
+            pch = strtok_r(NULL, "\t", &end_str);
+            CurrentHapDosage[2*(i-StartSamId)+1] = atof(pch);
+        }
+        else
+        {
+            CurrentHapDosage[2*(i-StartSamId)] = atof(temp.c_str());
         }
 
     }
