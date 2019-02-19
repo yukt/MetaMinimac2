@@ -50,9 +50,6 @@ public:
 
     double CurrentHapDosageSum, CurrentHapDosageSumSq;
     vector<double> HapDosageSum, HapDosageSumSq;
-    double CurrentAlleleFreq, CurrentRsq;
-
-
 
 
 
@@ -73,14 +70,10 @@ public:
     void UpdateCurrentRecords();
 
     bool LoadLooDosage();
-    void OpenStreamInputEmpDosageFiles();
-    void CloseStreamInputEmpDosageFiles();
-    string GetEmpDosageFileFullName(String prefix);
 
     int PerformFinalAnalysis();
     void GetMetaEstimate(int Sample, int SampleInBatch);
     void FlushPartialVcf(int batchNo);
-    void Initialize();
 
     void AppendtoMainVcf();
     void AppendtoMainWeightsFile();
@@ -88,7 +81,6 @@ public:
     void ReadCurrentDosageData();
     void CreateMetaImputedData();
     void MetaImpute(int Sample);
-    void PrintCurrentVariant();
     void PrintMetaImputedData();
     void PrintMetaWeight();
 

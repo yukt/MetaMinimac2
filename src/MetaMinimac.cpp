@@ -42,7 +42,6 @@ int MetaMinimac::Analyze()
 
     LoadLooDosage();
 
-//    OpenStreamInputDosageFiles(false);
     return PerformFinalAnalysis();
 }
 
@@ -227,45 +226,12 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
 }
 
 
-void MetaMinimac::OpenStreamInputEmpDosageFiles()
-{
-    InputEmpDosageStream.resize(NoInPrefix);
-    CurrentEmpRecordFromStudy.resize(NoInPrefix);
-    for(int i=0; i<NoInPrefix;i++)
-    {
-        VcfHeader header;
-        InputEmpDosageStream[i] = new VcfFileReader();
-        CurrentEmpRecordFromStudy[i]= new VcfRecord();
-        InputEmpDosageStream[i]->open( (GetEmpDosageFileFullName(InPrefixList[i])).c_str() , header);
-        InputEmpDosageStream[i]->readRecord(*CurrentEmpRecordFromStudy[i]);
-    }
-}
-
-void MetaMinimac::CloseStreamInputEmpDosageFiles()
-{
-    for (int i = 0; i < NoInPrefix; i++)
-    {
-        delete InputEmpDosageStream[i];
-        delete CurrentEmpRecordFromStudy[i];
-    }
-}
-
-
 string MetaMinimac::GetDosageFileFullName(String prefix)
 {
     if(doesExistFile(prefix+".dose.vcf"))
         return (string)prefix+".dose.vcf";
     else if(doesExistFile(prefix+".dose.vcf.gz"))
         return (string)prefix+".dose.vcf.gz";
-    return "";
-}
-
-string MetaMinimac::GetEmpDosageFileFullName(String prefix)
-{
-    if(doesExistFile(prefix+".empiricalDose.vcf"))
-        return (string)prefix+".empiricalDose.vcf";
-    else if(doesExistFile(prefix+".empiricalDose.vcf.gz"))
-        return (string)prefix+".empiricalDose.vcf.gz";
     return "";
 }
 

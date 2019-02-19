@@ -28,25 +28,25 @@ void MarkovModel::initialize(int Sample, MetaMinimac *const ThisStudy)
     NoInPrefix = ThisStudy->NoInPrefix;
 
     LeftProb.clear();
-//    RightProb.clear();
     LeftProb.resize(NoVariants);
-//    RightProb.resize(NoVariants);
+    InitProb.clear();
+    InitProb.resize(NoInPrefix);
+
 
     for(int i=0; i<NoVariants; i++)
     {
         LeftProb[i].resize(NoInPrefix, 0.0);
-//        RightProb[i].resize(NoInPrefix, 0.0);
     }
 
     LogOddsModel ThisSampleAnalysis;
     ThisSampleAnalysis.initialize(Sample, ThisStudy);
     vector<double> init(NoInPrefix-1, 0.0);
     vector<double> MiniMizer = Simplex(ThisSampleAnalysis, init);
-    InitProb.resize(NoInPrefix, 0.0);
     logitTransform(MiniMizer, InitProb);
 
     for(int j=0; j<NoInPrefix; j++)
     {
+//        InitProb[j] = 1.0/NoInPrefix;
         InitProb[j]+=backgroundError;
         LeftProb[0][j]=InitProb[j];
     }
