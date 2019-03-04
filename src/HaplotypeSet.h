@@ -65,6 +65,7 @@ public:
     void        LoadVariantList                         (string inFile);
     bool        CheckSampleConsistency                  (int tempNoSamples, vector<string> &tempindividualName, vector<int> tempSampleNoHaplotypes, string File1, string File2);
     void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList);
+    void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId);
     void        SortCommonGenotypeList                  (std::unordered_set<string> &CommonGenotypeVariantNameList, vector<string> &SortedCommonGenoList, vector<variant> &CommonTypedVariantList);
     bool        CheckSuffixFile                         (string prefix, const char* suffix, string &FinalName);
     void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype);
@@ -74,6 +75,7 @@ public:
     bool        GetSampleInformation                    (string filename);
     bool        GetSampleInformationfromHDS                    (string filename);
     void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords);
+    void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
     bool        LoadSampleNames                         (string prefix);
     bool        doesExistFile                           (string filename);
 };

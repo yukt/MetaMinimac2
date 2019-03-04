@@ -1,7 +1,11 @@
+#include "MetaMinimac.h"
 #include "MarkovModel.h"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include "simplex.h"
+
+using BT::Simplex;
 
 using namespace std;
 
@@ -40,7 +44,7 @@ int MetaMinimac::Analyze()
     LoadVariantInfo();
     CloseStreamInputDosageFiles();
 
-    LoadLooDosage();
+//    LoadLooDosage();
 
     return PerformFinalAnalysis();
 }
@@ -348,11 +352,16 @@ void MetaMinimac::UpdateCurrentRecords()
     }
 }
 
-bool MetaMinimac::LoadLooDosage()
+//void MetaMinimac::LoadLooDosage()
+//{
+//    for(int i=0; i<NoInPrefix; i++)
+//        InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList);
+//}
+
+void MetaMinimac::LoadLooDosage()
 {
     for(int i=0; i<NoInPrefix; i++)
-        InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList);
-    return true;
+        InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList, StartSamId, EndSamId);
 }
 
 int MetaMinimac::PerformFinalAnalysis()
@@ -382,21 +391,25 @@ int MetaMinimac::PerformFinalAnalysis()
 
         start_time = time(0);
 
-        int NoSamplesThisBatch = EndSamId-StartSamId;
-        Posterior.clear();
-        Posterior.resize(2*NoSamplesThisBatch);
+        LoadLooDosage();
+        InitLeftProb();
+        WalkLeft();
 
-        for (int id=0; id<NoSamplesThisBatch; id++)
-        {
-            int SampleId = StartSamId + id;
-            if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
-            {
-                GetMetaEstimate(2*SampleId, 2*id);
-                GetMetaEstimate(2*SampleId+1, 2*id+1);
-            }
-            else
-                GetMetaEstimate(2*SampleId, 2*id);
-        }
+//        Posterior.clear();
+//        Posterior.resize(2*NoSamplesThisBatch);
+//
+//
+//        for (int id=0; id<NoSamplesThisBatch; id++)
+//        {
+//            int SampleId = StartSamId + id;
+//            if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+//            {
+//                GetMetaEstimate(2*id);
+//                GetMetaEstimate(2*id+1);
+//            }
+//            else
+//                GetMetaEstimate(2*id);
+//        }
 
 
         OpenStreamInputDosageFiles(false);
@@ -423,12 +436,123 @@ int MetaMinimac::PerformFinalAnalysis()
 }
 
 
-void MetaMinimac::GetMetaEstimate(int Sample, int SampleInBatch)
+//void MetaMinimac::GetMetaEstimate(int Sample, int SampleInBatch)
+//{
+//    MarkovModel MM;
+//    MM.initialize(Sample, this);
+//    MM.walkLeft(Sample, this);
+//    MM.walkRight(Sample, this, SampleInBatch);
+//}
+//
+//void MetaMinimac::GetMetaEstimate(int SampleInBatch)
+//{
+//    InitLeftProb(SampleInBatch);
+//}
+
+void MetaMinimac::InitLeftProb()
 {
-    MarkovModel MM;
-    MM.initialize(Sample, this);
-    MM.walkLeft(Sample, this);
-    MM.walkRight(Sample, this, SampleInBatch);
+    int NoSamplesThisBatch = EndSamId-StartSamId;
+    LeftProb.clear();
+    LeftProb.resize(NoCommonTypedVariants+1);
+    for(int i=0; i<NoCommonTypedVariants+1; i++)
+    {
+        vector<vector<double>> &ThisLeftProb =  LeftProb[i];
+        ThisLeftProb.resize(2*NoSamplesThisBatch);
+        for(int j=0; j<2*NoSamplesThisBatch; j++)
+            ThisLeftProb[j].resize(NoInPrefix);
+    }
+    PrevLeftProb.clear();
+    PrevLeftProb.resize(2*NoSamplesThisBatch);
+    CurrentLeftProb.clear();
+    CurrentLeftProb.resize(2*NoSamplesThisBatch);
+
+
+    vector<double> init(NoInPrefix-1, 0.0);
+
+    for (int id=0; id<NoSamplesThisBatch; id++)
+    {
+
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            InitLeftProb(2*id);
+            InitLeftProb(2*id+1);
+        }
+        else
+            InitLeftProb(2*id);
+    }
+}
+
+void logitTransform(vector<double> &From,vector<double> &To)
+{
+
+    double sum=1.0;
+    int NoDimensions = (int)To.size();
+    for(int i=0; i < (NoDimensions-1); i++) sum+=exp(From[i]);
+    for(int i=0; i < (NoDimensions-1); i++)  To[i]=exp(From[i])/sum;
+    To[NoDimensions-1]=1.0/sum;
+
+
+    double checkSum=0.0;
+    for(int i=0;i<To.size();i++)
+        checkSum+=To[i];
+    if(checkSum>1.0001)
+        abort();
+}
+
+
+void MetaMinimac::InitLeftProb(int SampleInBatch)
+{
+    vector<double> &InitProb = LeftProb[NoCommonTypedVariants][SampleInBatch];
+    CurrentLeftProb[SampleInBatch].resize(NoInPrefix);
+
+    LogOddsModel ThisSampleAnalysis;
+    ThisSampleAnalysis.reinitialize(SampleInBatch, this);
+    vector<double> init(NoInPrefix-1, 0.0);
+    vector<double> MiniMizer = Simplex(ThisSampleAnalysis, init);
+    logitTransform(MiniMizer, InitProb);
+
+    for(int j=0; j<NoInPrefix; j++)
+    {
+        InitProb[j]+=backgroundError;
+        CurrentLeftProb[SampleInBatch][j] = InitProb[j];
+    }
+}
+
+void MetaMinimac::WalkLeft()
+{
+    NoVariantsProcessed = 0;
+    NoCommonVariantsProcessed = 0;
+
+
+    if (VariantList[NoVariants-1].typed)
+    {
+        NoVariantsProcessed++;
+        NoCommonVariantsProcessed++;
+        ProcessTypedLeftProb();
+    }
+}
+
+void MetaMinimac::ProcessTypedLeftProb()
+{
+    int NoHapsThisBatch = 2*(EndSamId-StartSamId);
+    for(int id=0; id<NoHapsThisBatch; id++)
+    {
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            ProcessLeftProb(2*id);
+            ProcessLeftProb(2*id+1);
+        }
+        else
+            ProcessLeftProb(2*id);
+    }
+
+}
+
+void MetaMinimac::ProcessLeftProb(int SampleInBatch)
+{
+
 }
 
 void MetaMinimac::FlushPartialVcf(int batchNo)

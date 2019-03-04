@@ -6,6 +6,8 @@
 
 using namespace std;
 
+void logitTransform(vector<double> &From,vector<double> &To);
+
 class MetaMinimac
 {
 public:
@@ -34,7 +36,12 @@ public:
 
     // Process Part of Samples each time
     int StartSamId, EndSamId;
+    double Recom, backgroundError;
+    double JumpFix, JumpThreshold;
     vector<vector<vector<double>>> Posterior;
+    vector<vector<vector<double>>> LeftProb;
+    vector<vector<double>> PrevLeftProb, CurrentLeftProb;
+    int NoVariantsProcessed, NoCommonVariantsProcessed;
 
     // Output files
     IFILE vcfdosepartial, vcfweightpartial;
@@ -50,6 +57,15 @@ public:
 
     double CurrentHapDosageSum, CurrentHapDosageSumSq;
     vector<double> HapDosageSum, HapDosageSumSq;
+
+
+    MetaMinimac()
+    {
+        Recom = 1e-5;
+        backgroundError = 1e-5;
+        JumpThreshold = 1e-10;
+        JumpFix = 1e10;
+    };
 
 
 
@@ -69,11 +85,18 @@ public:
     void ReadCurrentVariantInfo();
     void UpdateCurrentRecords();
 
-    bool LoadLooDosage();
+    void LoadLooDosage();
 
     int PerformFinalAnalysis();
-    void GetMetaEstimate(int Sample, int SampleInBatch);
+//    void GetMetaEstimate(int Sample, int SampleInBatch);
+//    void GetMetaEstimate(int SampleInBatch);
     void FlushPartialVcf(int batchNo);
+
+    void InitLeftProb();
+    void InitLeftProb(int SampleInBatch);
+    void WalkLeft();
+    void ProcessTypedLeftProb();
+    void ProcessLeftProb(int SampleInBatch);
 
     void AppendtoMainVcf();
     void AppendtoMainWeightsFile();

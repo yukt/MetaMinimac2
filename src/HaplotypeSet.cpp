@@ -320,6 +320,51 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     inFile.close();
 }
 
+void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId)
+
+{
+    VcfFileReader inFile;
+    VcfHeader header;
+    VcfRecord record;
+    VcfRecordGenotype *recordGeno;
+    inFile.open(EmpDoseFileName.c_str(), header);
+    inFile.setSiteOnly(false);
+    int bp,numReadRecords=0;
+    int numHapsInBatch = 2*(EndSamId - StartSamId);
+    string cno,id,refAllele,altAllele,prevID="",currID;
+
+    LooDosage.clear();
+    TypedGT.clear();
+    LooDosage.resize(numHapsInBatch);
+    TypedGT.resize(numHapsInBatch);
+    for(int i=0; i<numHapsInBatch; i++)
+    {
+        LooDosage[i].resize(SortedCommonGenoList.size());
+        TypedGT[i].resize(SortedCommonGenoList.size());
+    }
+    int SortIndex = 0;
+    int numComRecord = 0;
+    while (inFile.readRecord(record))
+    {
+        ++numReadRecords;
+
+        if(SortedCommonGenoList[SortIndex]==record.getIDStr())
+        {
+            recordGeno=&record.getGenotypeInfo();
+            LoadLooVariant(*recordGeno, numComRecord, StartSamId, EndSamId);
+            numComRecord++;
+            SortIndex++;
+        }
+    }
+    if(SortedCommonGenoList.size()!=SortIndex)
+    {
+        cout<<" ERROR CODE 2819: Please contact author with this code to help with bug fixing ..."<<endl;
+        abort();
+    }
+
+    inFile.close();
+}
+
 void HaplotypeSet::LoadHapDoseVariant(VcfRecordGenotype &ThisGenotype)
 {
     for (int i = 0; i<(numSamples); i++)
@@ -395,6 +440,39 @@ void HaplotypeSet::LoadLooVariant(VcfRecordGenotype &ThisGenotype,int loonumRead
             TypedGT[2*i][loonumReadRecords] = atof(temp.c_str());
 
         }
+    }
+}
+
+void HaplotypeSet::LoadLooVariant(VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId)
+{
+    int NoHapsLoad = 0;
+    for (int i = StartSamId; i<EndSamId; i++)
+    {
+        string temp=*ThisGenotype.getString("LDS",i);
+        if(SampleNoHaplotypes[i]==2)
+        {
+            char *end_str;
+            char *pch = strtok_r((char *) temp.c_str(), "|", &end_str);
+            LooDosage[2*NoHapsLoad][loonumReadRecords] = atof(pch);
+            pch = strtok_r(NULL, "\t", &end_str);
+            LooDosage[2*NoHapsLoad + 1][loonumReadRecords] = atof(pch);
+
+
+            temp = *ThisGenotype.getString("GT", i);
+            char *end_str1;
+            char *pch1 = strtok_r((char *) temp.c_str(), "|", &end_str1);
+            TypedGT[2*NoHapsLoad][loonumReadRecords] = atof(pch1);
+            pch1 = strtok_r(NULL, "\t", &end_str1);
+            TypedGT[2*NoHapsLoad+1][loonumReadRecords] = atof(pch1);
+        }
+        else
+        {
+            LooDosage[2*NoHapsLoad][loonumReadRecords] = atof(temp.c_str());
+            temp = *ThisGenotype.getString("GT", i);
+            TypedGT[2*NoHapsLoad][loonumReadRecords] = atof(temp.c_str());
+
+        }
+        NoHapsLoad++;
     }
 }
 
