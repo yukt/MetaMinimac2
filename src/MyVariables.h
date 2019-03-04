@@ -13,7 +13,7 @@ public:
     String FileDelimiter;
     String formatString;
     bool debug;
-    int PrintBuffer;
+    int PrintBuffer, VcfBuffer;
     bool infoDetails;
     String formatStringForVCF;
     bool GT, DS, HDS, GP, SD;
@@ -39,6 +39,7 @@ public:
         debug=false;
         gzip = true;
         nobgzip = false;
+        VcfBuffer = 100;
     };
 
     void CreateCommandLine(int argc, char ** argv)

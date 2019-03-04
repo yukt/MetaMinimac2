@@ -111,6 +111,8 @@ bool MetaMinimac::CheckSampleNameCompatibility()
 
     NoHaplotypes = InputData[0].numHaplotypes;
     NoSamples = InputData[0].numSamples;
+    if (myUserVariables.VcfBuffer > NoSamples)
+        myUserVariables.VcfBuffer = NoSamples;
 
     cout<<" -- Successful !!! "<<endl;
     return true;
@@ -361,9 +363,7 @@ int MetaMinimac::PerformFinalAnalysis()
     cout << " ------------------------------------------------------------------------------" << endl;
 
 
-    int maxVcfSample = 10;
-    if (maxVcfSample >= NoSamples)
-        maxVcfSample = NoSamples;
+    int maxVcfSample = myUserVariables.VcfBuffer;
 
     HapDosageSum.resize(NoVariants, 0.0);
     HapDosageSumSq.resize(NoVariants, 0.0);
