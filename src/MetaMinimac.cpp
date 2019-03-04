@@ -133,6 +133,7 @@ void MetaMinimac::OpenStreamInputDosageFiles(bool siteOnly)
         InputDosageStream[i]->setSiteOnly(siteOnly);
         InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i]);
     }
+    finChromosome = CurrentRecordFromStudy[0]->getChromStr();
 }
 
 void MetaMinimac::CloseStreamInputDosageFiles()
@@ -278,7 +279,6 @@ bool MetaMinimac::LoadVariantInfo()
 void MetaMinimac::FindCurrentMinimumPosition() {
 
     if (NoInPrefix == 2) {
-        finChromosome = CurrentRecordFromStudy[0]->getChromStr();
         int a = CurrentRecordFromStudy[0]->get1BasedPosition();
         int b = CurrentRecordFromStudy[1]->get1BasedPosition();
         CurrentFirstVariantBp = a;
