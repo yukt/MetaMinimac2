@@ -463,8 +463,6 @@ void MetaMinimac::InitLeftProb()
     }
     PrevLeftProb.clear();
     PrevLeftProb.resize(2*NoSamplesThisBatch);
-    CurrentLeftProb.clear();
-    CurrentLeftProb.resize(2*NoSamplesThisBatch);
 
 
     vector<double> init(NoInPrefix-1, 0.0);
@@ -504,7 +502,7 @@ void logitTransform(vector<double> &From,vector<double> &To)
 void MetaMinimac::InitLeftProb(int SampleInBatch)
 {
     vector<double> &InitProb = LeftProb[NoCommonTypedVariants][SampleInBatch];
-    CurrentLeftProb[SampleInBatch].resize(NoInPrefix);
+    PrevLeftProb[SampleInBatch].resize(NoInPrefix);
 
     LogOddsModel ThisSampleAnalysis;
     ThisSampleAnalysis.reinitialize(SampleInBatch, this);
@@ -515,7 +513,7 @@ void MetaMinimac::InitLeftProb(int SampleInBatch)
     for(int j=0; j<NoInPrefix; j++)
     {
         InitProb[j]+=backgroundError;
-        CurrentLeftProb[SampleInBatch][j] = InitProb[j];
+        PrevLeftProb[SampleInBatch][j] = InitProb[j];
     }
 }
 
@@ -531,27 +529,106 @@ void MetaMinimac::WalkLeft()
         NoCommonVariantsProcessed++;
         ProcessTypedLeftProb();
     }
+
+    while(NoVariantsProcessed<NoVariants)
+    {
+        NoVariantsProcessed++;
+        WalkOneStepLeft();
+        if (VariantList[NoVariants-NoVariantsProcessed].typed)
+        {
+            NoCommonVariantsProcessed++;
+            ProcessTypedLeftProb();
+        }
+    }
+
+    assert(NoCommonVariantsProcessed==NoCommonTypedVariants);
 }
 
-void MetaMinimac::ProcessTypedLeftProb()
+void MetaMinimac::WalkOneStepLeft()
 {
-    int NoHapsThisBatch = 2*(EndSamId-StartSamId);
-    for(int id=0; id<NoHapsThisBatch; id++)
+    for(int id=0; id<EndSamId-StartSamId; id++)
     {
         int SampleId = StartSamId + id;
         if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
         {
-            ProcessLeftProb(2*id);
-            ProcessLeftProb(2*id+1);
+            WalkOneStepLeft(2*id);
+            WalkOneStepLeft(2*id+1);
         }
         else
-            ProcessLeftProb(2*id);
+            WalkOneStepLeft(2*id);
     }
-
 }
 
-void MetaMinimac::ProcessLeftProb(int SampleInBatch)
+void MetaMinimac::WalkOneStepLeft(int HapInBatch)
 {
+    vector<double> &PrevProb=PrevLeftProb[HapInBatch];
+    double r = Recom*1.0/NoInPrefix, complement = 1-Recom;
+    vector<double> ThisProb;
+    ThisProb.resize(NoInPrefix, 0.0);
+
+    double sum = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        for(int j=0; j<NoInPrefix; j++)
+            ThisProb[i] += PrevProb[j]*r;
+        ThisProb[i] += PrevProb[i]*complement;
+        sum += ThisProb[i];
+    }
+
+    while(sum < JumpThreshold)
+    {
+        sum = 0.0;
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            ThisProb[i] *= JumpFix;
+            sum += ThisProb[i];
+        }
+    }
+
+    for(int i=0; i<NoInPrefix; i++)
+        PrevProb[i] = ThisProb[i];
+}
+
+void MetaMinimac::ProcessTypedLeftProb()
+{
+    for(int id=0; id<EndSamId-StartSamId; id++)
+    {
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            ProcessTypedLeftProb(2*id);
+            ProcessTypedLeftProb(2*id+1);
+        }
+        else
+            ProcessTypedLeftProb(2*id);
+    }
+}
+
+void MetaMinimac::ProcessTypedLeftProb(int HapInBatch)
+{
+    float ThisGT = InputData[0].TypedGT[HapInBatch][NoCommonTypedVariants-NoCommonVariantsProcessed];
+    vector<double> &ThisPrevLeftProb = PrevLeftProb[HapInBatch];
+    vector<double> &ThisLeftProb = LeftProb[NoCommonTypedVariants-NoCommonVariantsProcessed][HapInBatch];
+
+    double sum=0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        float ThisLooDosage = InputData[i].LooDosage[HapInBatch][NoCommonTypedVariants-NoCommonVariantsProcessed];
+        ThisPrevLeftProb[i] *= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+        ThisLeftProb[i] = ThisPrevLeftProb[i];
+        sum += ThisLeftProb[i];
+    }
+
+    while(sum < JumpThreshold)
+    {
+        sum = 0.0;
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            ThisLeftProb[i] *= JumpFix;
+            ThisPrevLeftProb[i] *= JumpFix;
+            sum += ThisLeftProb[i];
+        }
+    }
 
 }
 

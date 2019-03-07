@@ -40,7 +40,7 @@ public:
     double JumpFix, JumpThreshold;
     vector<vector<vector<double>>> Posterior;
     vector<vector<vector<double>>> LeftProb;
-    vector<vector<double>> PrevLeftProb, CurrentLeftProb;
+    vector<vector<double>> PrevLeftProb;
     int NoVariantsProcessed, NoCommonVariantsProcessed;
 
     // Output files
@@ -95,8 +95,10 @@ public:
     void InitLeftProb();
     void InitLeftProb(int SampleInBatch);
     void WalkLeft();
+    void WalkOneStepLeft();
+    void WalkOneStepLeft(int SampleInBatch);
     void ProcessTypedLeftProb();
-    void ProcessLeftProb(int SampleInBatch);
+    void ProcessTypedLeftProb(int SampleInBatch);
 
     void AppendtoMainVcf();
     void AppendtoMainWeightsFile();
