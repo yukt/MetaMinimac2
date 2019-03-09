@@ -390,7 +390,7 @@ void HaplotypeSet::LoadHapDoseVariant(VcfRecordGenotype &ThisGenotype)
 void HaplotypeSet::LoadHapDoseVariant(VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId)
 {
     CurrentHapDosage.clear();
-    CurrentHapDosage.resize(2*(EndSamId-StartSamId));
+    CurrentHapDosage.resize(2*(EndSamId-StartSamId), 0.0);
 
     for (int i = StartSamId; i<EndSamId; i++)
     {

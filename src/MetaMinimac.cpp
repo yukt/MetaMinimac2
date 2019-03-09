@@ -263,7 +263,8 @@ bool MetaMinimac::LoadVariantInfo()
 {
     cout<<"\n Scanning input VCFs for SNPs ... "<<endl;
     VariantList.clear();
-    CommonTyped.clear();
+    NoOffsetThisBlock.clear();
+    NoVariantsProcessed = 0;
     do
     {
         FindCurrentMinimumPosition();
@@ -275,6 +276,7 @@ bool MetaMinimac::LoadVariantInfo()
 
     NoVariants = VariantList.size();
     NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
+    assert(NoVariantsProcessed==NoVariants);
     cout<<" -- Found " << NoSamples <<" samples on " << NoVariants <<" sites ("<< NoCommonTypedVariants <<" common typed)! "<<endl;
     return true;
 
@@ -314,6 +316,7 @@ int MetaMinimac::IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2)
 
 void MetaMinimac::ReadCurrentVariantInfo()
 {
+    NoVariantsProcessed++;
     variant tempVariant;
     tempVariant.bp = CurrentFirstVariantBp;
     tempVariant.NoStudiesHasVariant = NoStudiesHasVariant;
@@ -332,11 +335,10 @@ void MetaMinimac::ReadCurrentVariantInfo()
     if(record->getInfo().getString("IMPUTED") == NULL & NoStudiesHasVariant==NoInPrefix)
     {
         tempVariant.typed = true;
-        CommonTyped.push_back(true);
         CommonTypedVariantList.push_back(tempVariant);
         CommonGenotypeVariantNameList.push_back(tempVariant.name);
+        NoOffsetThisBlock.push_back(NoVariantsProcessed);
     }
-    else { CommonTyped.push_back(false); }
     VariantList.push_back(tempVariant);
 
 }
@@ -374,9 +376,6 @@ int MetaMinimac::PerformFinalAnalysis()
 
     int maxVcfSample = myUserVariables.VcfBuffer;
 
-    HapDosageSum.resize(NoVariants, 0.0);
-    HapDosageSumSq.resize(NoVariants, 0.0);
-
     StartSamId = 0;
 
     batchNo = 0;
@@ -392,28 +391,24 @@ int MetaMinimac::PerformFinalAnalysis()
         start_time = time(0);
 
         LoadLooDosage();
-        InitLeftProb();
+        InitiateProbs();
         WalkLeft();
 
-//        Posterior.clear();
-//        Posterior.resize(2*NoSamplesThisBatch);
-//
-//
-//        for (int id=0; id<NoSamplesThisBatch; id++)
-//        {
-//            int SampleId = StartSamId + id;
-//            if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
-//            {
-//                GetMetaEstimate(2*id);
-//                GetMetaEstimate(2*id+1);
-//            }
-//            else
-//                GetMetaEstimate(2*id);
-//        }
-
-
         OpenStreamInputDosageFiles(false);
-        FlushPartialVcf(batchNo);
+
+        if(maxVcfSample<NoSamples)
+        {
+            HapDosageSum.resize(NoVariants, 0.0);
+            HapDosageSumSq.resize(NoVariants, 0.0);
+            OpenTempOutputFiles();
+            FlushPartialVcf();
+        }
+        else
+        {
+
+        }
+
+
         CloseStreamInputDosageFiles();
 
         time_tot = time(0) - start_time;
@@ -425,11 +420,14 @@ int MetaMinimac::PerformFinalAnalysis()
             break;
     }
 
-    AppendtoMainVcf();
-
-    if(myUserVariables.debug)
+    if(batchNo > 1)
     {
-        AppendtoMainWeightsFile();
+        AppendtoMainVcf();
+
+        if(myUserVariables.debug)
+        {
+            AppendtoMainWeightsFile();
+        }
     }
 
     return 0;
@@ -449,7 +447,7 @@ int MetaMinimac::PerformFinalAnalysis()
 //    InitLeftProb(SampleInBatch);
 //}
 
-void MetaMinimac::InitLeftProb()
+void MetaMinimac::InitiateProbs()
 {
     int NoSamplesThisBatch = EndSamId-StartSamId;
     LeftProb.clear();
@@ -463,6 +461,8 @@ void MetaMinimac::InitLeftProb()
     }
     PrevLeftProb.clear();
     PrevLeftProb.resize(2*NoSamplesThisBatch);
+    PrevRightProb.clear();
+    PrevRightProb.resize(2*NoSamplesThisBatch);
 
 
     vector<double> init(NoInPrefix-1, 0.0);
@@ -499,13 +499,14 @@ void logitTransform(vector<double> &From,vector<double> &To)
 }
 
 
-void MetaMinimac::InitLeftProb(int SampleInBatch)
+void MetaMinimac::InitLeftProb(int HapInBatch)
 {
-    vector<double> &InitProb = LeftProb[NoCommonTypedVariants][SampleInBatch];
-    PrevLeftProb[SampleInBatch].resize(NoInPrefix);
+    vector<double> &InitProb = LeftProb[NoCommonTypedVariants][HapInBatch];
+    PrevLeftProb[HapInBatch].resize(NoInPrefix);
+    PrevRightProb[HapInBatch].resize(NoInPrefix, 1.0);
 
     LogOddsModel ThisSampleAnalysis;
-    ThisSampleAnalysis.reinitialize(SampleInBatch, this);
+    ThisSampleAnalysis.reinitialize(HapInBatch, this);
     vector<double> init(NoInPrefix-1, 0.0);
     vector<double> MiniMizer = Simplex(ThisSampleAnalysis, init);
     logitTransform(MiniMizer, InitProb);
@@ -513,7 +514,7 @@ void MetaMinimac::InitLeftProb(int SampleInBatch)
     for(int j=0; j<NoInPrefix; j++)
     {
         InitProb[j]+=backgroundError;
-        PrevLeftProb[SampleInBatch][j] = InitProb[j];
+        PrevLeftProb[HapInBatch][j] = InitProb[j];
     }
 }
 
@@ -540,6 +541,7 @@ void MetaMinimac::WalkLeft()
             ProcessTypedLeftProb();
         }
     }
+    WalkOneStepLeft();
 
     assert(NoCommonVariantsProcessed==NoCommonTypedVariants);
 }
@@ -566,23 +568,13 @@ void MetaMinimac::WalkOneStepLeft(int HapInBatch)
     vector<double> ThisProb;
     ThisProb.resize(NoInPrefix, 0.0);
 
-    double sum = 0.0;
+//    double sum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
     {
         for(int j=0; j<NoInPrefix; j++)
             ThisProb[i] += PrevProb[j]*r;
         ThisProb[i] += PrevProb[i]*complement;
-        sum += ThisProb[i];
-    }
-
-    while(sum < JumpThreshold)
-    {
-        sum = 0.0;
-        for(int i=0; i<NoInPrefix; i++)
-        {
-            ThisProb[i] *= JumpFix;
-            sum += ThisProb[i];
-        }
+//        sum += ThisProb[i];
     }
 
     for(int i=0; i<NoInPrefix; i++)
@@ -632,7 +624,7 @@ void MetaMinimac::ProcessTypedLeftProb(int HapInBatch)
 
 }
 
-void MetaMinimac::FlushPartialVcf(int batchNo)
+void MetaMinimac::OpenTempOutputFiles()
 {
     cout << "      Saving in temporary VCF file ... " << endl;
     VcfPrintStringPointerLength=0;
@@ -650,19 +642,38 @@ void MetaMinimac::FlushPartialVcf(int batchNo)
         WeightPrintStringPointerLength = 0;
     }
 
-    NoVariantsImputed = 0;
+}
+
+void MetaMinimac::FlushPartialVcf()
+{
+    NoVariantsProcessed = 0;
+    NoCommonVariantsProcessed = 0;
     for(int i=0; i<NoVariants; i++)
     {
         CurrentVariant = &VariantList[i];
+        WalkOneStepRight();
         ReadCurrentDosageData();
-        CreateMetaImputedData();
-        PrintMetaImputedData();
-        if(myUserVariables.debug & CommonTyped[i])
+
+        if(CurrentVariant->typed)
         {
-            PrintMetaWeight();
+            UpdateLeftProb();
+            CreateMetaImputedData();
+            CalculateStats();
+            PrintMetaImputedData();
+            if(myUserVariables.debug)
+                PrintMetaWeight();
+            UpdateRightProb();
+            NoCommonVariantsProcessed++;
         }
+        else
+        {
+            CreateMetaImputedData();
+            CalculateStats();
+            PrintMetaImputedData();
+        }
+
         UpdateCurrentRecords();
-        NoVariantsImputed++;
+        NoVariantsProcessed++;
     }
     if (VcfPrintStringPointerLength > 0)
     {
@@ -679,6 +690,119 @@ void MetaMinimac::FlushPartialVcf(int batchNo)
     }
 }
 
+
+void MetaMinimac::WalkOneStepRight()
+{
+    for(int id=0; id<EndSamId-StartSamId; id++)
+    {
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            WalkOneStepRight(2*id);
+            WalkOneStepRight(2*id+1);
+        }
+        else
+            WalkOneStepRight(2*id);
+    }
+}
+
+void MetaMinimac::WalkOneStepRight(int HapInBatch)
+{
+    vector<double> &PrevLeft=PrevLeftProb[HapInBatch];
+    vector<double> &PrevRight=PrevRightProb[HapInBatch];
+    vector<double> ThisLeft, ThisRight;
+
+    double r = Recom*1.0/NoInPrefix, complement = 1-Recom;
+    double r_c = r/complement;
+    ThisLeft.resize(NoInPrefix);
+    ThisRight.resize(NoInPrefix);
+
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        ThisLeft[i] = PrevLeft[i]*(1+2*r_c);
+        ThisRight[i] = PrevRight[i]*complement;
+        for(int j=0; j<NoInPrefix; j++)
+        {
+            ThisRight[i] += PrevRight[j]*r;
+            ThisLeft[i] -= PrevLeft[j]*r_c;
+        }
+
+        if(ThisLeft[i]<0)
+            int h=0;
+    }
+
+
+
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        PrevRight[i] = ThisRight[i];
+        PrevLeft[i] = ThisLeft[i];
+    }
+}
+
+void MetaMinimac::UpdateLeftProb()
+{
+    vector<vector<double>> &ThisLeftProb = LeftProb[NoCommonVariantsProcessed];
+    for(int id=0; id<EndSamId-StartSamId; id++)
+    {
+        if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
+        {
+            for(int i=0; i<NoInPrefix; i++)
+            {
+                PrevLeftProb[2*id][i] = ThisLeftProb[2*id][i];
+                PrevLeftProb[2*id+1][i] = ThisLeftProb[2*id+1][i];
+            }
+        }
+        else
+        {
+            for(int i=0; i<NoInPrefix; i++)
+            {
+                PrevLeftProb[2*id][i] = ThisLeftProb[2*id][i];
+            }
+        }
+    }
+}
+
+void MetaMinimac::UpdateRightProb()
+{
+    for(int id=0; id<EndSamId-StartSamId; id++)
+    {
+        if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
+        {
+            UpdateRightProb(2*id);
+            UpdateRightProb(2*id+1);
+        }
+        else
+            UpdateRightProb(2*id);
+    }
+}
+
+void MetaMinimac::UpdateRightProb(int HapInBatch)
+{
+    float ThisGT = InputData[0].TypedGT[HapInBatch][NoCommonVariantsProcessed];
+    vector<double> &ThisRightProb = PrevRightProb[HapInBatch];
+    vector<double> &ThisLeftProb  = PrevLeftProb[HapInBatch];
+
+    double sum=0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        float ThisLooDosage = InputData[i].LooDosage[HapInBatch][NoCommonVariantsProcessed];
+        ThisRightProb[i] *= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+        ThisLeftProb[i] /= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+        sum += ThisRightProb[i];
+    }
+
+    while(sum < JumpThreshold)
+    {
+        sum = 0.0;
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            ThisRightProb[i] *= JumpFix;
+            sum += ThisRightProb[i];
+        }
+    }
+}
+
 void MetaMinimac::ReadCurrentDosageData()
 {
     NoStudiesHasVariant = CurrentVariant->NoStudiesHasVariant;
@@ -691,31 +815,44 @@ void MetaMinimac::ReadCurrentDosageData()
 
 void MetaMinimac::CreateMetaImputedData()
 {
+    CurrentHapDosageSum = 0;
+    CurrentHapDosageSumSq = 0;
     CurrentMetaImputedDosage.clear();
-    CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
+    CurrentPosterior.clear();
 
     if(NoStudiesHasVariant==1)
     {
-        CurrentMetaImputedDosage=InputData[CurrentVariant->StudiesHasVariant[0]].CurrentHapDosage;
-        return;
-    }
-
-    CurrentHapDosageSum = 0;
-    CurrentHapDosageSumSq = 0;
-
-    for (int i=StartSamId; i<EndSamId; i++)
-    {
-        if (InputData[0].SampleNoHaplotypes[i] == 2)
+        CurrentMetaImputedDosage = InputData[CurrentVariant->StudiesHasVariant[0]].CurrentHapDosage;
+        for(int i=0; i<2*(EndSamId-StartSamId); i++)
         {
-            MetaImpute(2 * (i-StartSamId));
-            MetaImpute(2 * (i-StartSamId) + 1);
+            CurrentHapDosageSum += CurrentMetaImputedDosage[i];
+            CurrentHapDosageSumSq += CurrentMetaImputedDosage[i]*CurrentMetaImputedDosage[i];
         }
-        else
-            MetaImpute(2 * (i-StartSamId));
     }
-    HapDosageSum[NoVariantsImputed] += CurrentHapDosageSum;
-    HapDosageSumSq[NoVariantsImputed] += CurrentHapDosageSumSq;
+    else
+    {
+        CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
+        CurrentPosterior.resize(2*(EndSamId-StartSamId));
+        for(int id=0; id<EndSamId-StartSamId; id++)
+        {
+            int SampleId = StartSamId+id;
+            if(InputData[0].SampleNoHaplotypes[SampleId]==2)
+            {
+                MetaImpute(2*id);
+                MetaImpute(2*id + 1);
+            }
+            else
+            {
+                MetaImpute(2*id);
+            }
+        }
+    }
+}
 
+void MetaMinimac::CalculateStats()
+{
+    HapDosageSum[NoVariantsProcessed] += CurrentHapDosageSum;
+    HapDosageSumSq[NoVariantsProcessed] += CurrentHapDosageSumSq;
 }
 
 void MetaMinimac::MetaImpute(int Sample)
@@ -723,14 +860,21 @@ void MetaMinimac::MetaImpute(int Sample)
     double WeightSum = 0.0;
     double Dosage = 0.0;
 
-    vector<double>& CurrentPosterior = Posterior[Sample][NoVariantsImputed];
+    vector<double> &ThisLeft = PrevLeftProb[Sample];
+    vector<double> &ThisRight = PrevRightProb[Sample];
+    vector<float> &ThisPosterior = CurrentPosterior[Sample];
+    ThisPosterior.resize(NoInPrefix);
+
     for (int j=0; j<NoStudiesHasVariant; j++)
     {
         int index = CurrentVariant->StudiesHasVariant[j];
-        WeightSum += CurrentPosterior[index];
-        Dosage += CurrentPosterior[index] * InputData[index].CurrentHapDosage[Sample];
+        double Weight = ThisLeft[index]*ThisRight[index];
+        ThisPosterior[index] = Weight;
+        WeightSum += Weight;
+        Dosage += Weight * InputData[index].CurrentHapDosage[Sample];
     }
     Dosage /= WeightSum;
+
     CurrentMetaImputedDosage[Sample] = Dosage;
     CurrentHapDosageSum += Dosage;
     CurrentHapDosageSumSq += Dosage * Dosage;
@@ -739,17 +883,12 @@ void MetaMinimac::MetaImpute(int Sample)
 
 void MetaMinimac::PrintMetaImputedData()
 {
-
-    for(int Id=StartSamId; Id<EndSamId; Id++)
+    for(int id=0; id<EndSamId-StartSamId; id++)
     {
-        int NoHaps = InputData[0].SampleNoHaplotypes[Id];
-        int IdInBatch = Id-StartSamId;
-        if(NoHaps==2)
-            PrintDiploidDosage((CurrentMetaImputedDosage[2*IdInBatch]), (CurrentMetaImputedDosage[2*IdInBatch+1]));
-        else if(NoHaps==1)
-            PrintHaploidDosage((CurrentMetaImputedDosage[2*IdInBatch]));
+        if( InputData[0].SampleNoHaplotypes[StartSamId+id]==2 )
+            PrintDiploidDosage((CurrentMetaImputedDosage[2*id]), (CurrentMetaImputedDosage[2*id+1]));
         else
-            abort();
+            PrintHaploidDosage((CurrentMetaImputedDosage[2*id]));
     }
 
     VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"\n");
@@ -763,19 +902,17 @@ void MetaMinimac::PrintMetaImputedData()
 
 void MetaMinimac::PrintMetaWeight()
 {
-    for(int Id=StartSamId; Id<EndSamId; Id++)
+    for(int id=0; id<EndSamId-StartSamId; id++)
     {
         WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\t");
-        int NoHaps = InputData[0].SampleNoHaplotypes[Id];
-        int IdInBatch = Id-StartSamId;
-        if(NoHaps==2)
+        if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
         {
-            PrintWeightForHaplotype(2*IdInBatch);
+            PrintWeightForHaplotype(2*id);
             WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"|");
-            PrintWeightForHaplotype(2*IdInBatch+1);
+            PrintWeightForHaplotype(2*id+1);
         }
         else
-            PrintWeightForHaplotype(2*IdInBatch);
+            PrintWeightForHaplotype(2*id);
     }
 
     WeightPrintStringPointerLength+= sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\n");
@@ -968,13 +1105,13 @@ void MetaMinimac::PrintHaploidDosage(float &x)
 
 void MetaMinimac::PrintWeightForHaplotype(int haploId)
 {
-    vector<double>& CurrentPosterior = Posterior[haploId][NoVariantsImputed];
-    double WeightSum = 0.0;
+    vector<float> &ThisPosterior = CurrentPosterior[haploId];
+    float WeightSum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
-        WeightSum += CurrentPosterior[i];
-    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", CurrentPosterior[0]/WeightSum);
+        WeightSum += ThisPosterior[i];
+    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisPosterior[0]/WeightSum);
     for(int i=1;i<NoInPrefix;i++)
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", CurrentPosterior[i]/WeightSum);
+        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisPosterior[i]/WeightSum);
 }
 
 

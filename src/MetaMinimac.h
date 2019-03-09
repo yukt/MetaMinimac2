@@ -19,15 +19,12 @@ public:
     vector<variant> VariantList;
     vector<variant> CommonTypedVariantList;
     vector<string> CommonGenotypeVariantNameList;
-    vector<bool> CommonTyped;
     int NoHaplotypes, NoSamples;
-    int NoVariants, NoRead, NoCommonTypedVariants, CommonTypedVariantListCounter;
+    int NoVariants, NoCommonTypedVariants;
 
     // Variables for input dosage file stream and records
     vector<VcfFileReader*> InputDosageStream;
-    vector<VcfFileReader*> InputEmpDosageStream;
     vector<VcfRecord*> CurrentRecordFromStudy;
-    vector<VcfRecord*> CurrentEmpRecordFromStudy;
     vector<int> StudiesHasVariant;
     int CurrentFirstVariantBp;
     int NoStudiesHasVariant;
@@ -38,9 +35,9 @@ public:
     int StartSamId, EndSamId;
     double Recom, backgroundError;
     double JumpFix, JumpThreshold;
-    vector<vector<vector<double>>> Posterior;
+    vector<int> NoOffsetThisBlock;
     vector<vector<vector<double>>> LeftProb;
-    vector<vector<double>> PrevLeftProb;
+    vector<vector<double>> PrevLeftProb, PrevRightProb;
     int NoVariantsProcessed, NoCommonVariantsProcessed;
 
     // Output files
@@ -53,10 +50,10 @@ public:
 
     variant* CurrentVariant;
     vector<float> CurrentMetaImputedDosage;
-    int NoVariantsImputed;
+    vector<vector<float>> CurrentPosterior;
 
-    double CurrentHapDosageSum, CurrentHapDosageSumSq;
-    vector<double> HapDosageSum, HapDosageSumSq;
+    float CurrentHapDosageSum, CurrentHapDosageSumSq;
+    vector<float> HapDosageSum, HapDosageSumSq;
 
 
     MetaMinimac()
@@ -90,9 +87,10 @@ public:
     int PerformFinalAnalysis();
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);
-    void FlushPartialVcf(int batchNo);
+    void FlushPartialVcf();
+    void OpenTempOutputFiles();
 
-    void InitLeftProb();
+    void InitiateProbs();
     void InitLeftProb(int SampleInBatch);
     void WalkLeft();
     void WalkOneStepLeft();
@@ -105,6 +103,12 @@ public:
 
     void ReadCurrentDosageData();
     void CreateMetaImputedData();
+    void CalculateStats();
+    void WalkOneStepRight();
+    void WalkOneStepRight(int SampleInBatch);
+    void UpdateLeftProb();
+    void UpdateRightProb();
+    void UpdateRightProb(int HapInBatch);
     void MetaImpute(int Sample);
     void PrintMetaImputedData();
     void PrintMetaWeight();
