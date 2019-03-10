@@ -39,7 +39,7 @@ public:
         debug=false;
         gzip = true;
         nobgzip = false;
-        VcfBuffer = 1;
+        VcfBuffer = 200;
     };
 
     void CreateCommandLine(int argc, char ** argv)

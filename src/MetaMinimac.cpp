@@ -113,7 +113,7 @@ bool MetaMinimac::CheckSampleNameCompatibility()
 
     }
 
-    NoHaplotypes = InputData[0].numHaplotypes;
+    NoHaplotypes = InputData[0].numActualHaps;
     NoSamples = InputData[0].numSamples;
     if (myUserVariables.VcfBuffer > NoSamples)
         myUserVariables.VcfBuffer = NoSamples;
@@ -405,7 +405,7 @@ int MetaMinimac::PerformFinalAnalysis()
         }
         else
         {
-
+            FlushAllVcf();
         }
 
 
@@ -691,6 +691,64 @@ void MetaMinimac::FlushPartialVcf()
 }
 
 
+void MetaMinimac::FlushAllVcf()
+{
+    VcfPrintStringPointerLength=0;
+    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf.gz", "a", InputFile::BGZF);
+    if(myUserVariables.debug)
+    {
+        WeightPrintStringPointerLength=0;
+        vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights.vcf.gz", "a", InputFile::BGZF);
+    }
+
+    NoVariantsProcessed = 0;
+    NoCommonVariantsProcessed = 0;
+    for(int i=0; i<NoVariants; i++)
+    {
+        CurrentVariant = &VariantList[i];
+        WalkOneStepRight();
+        ReadCurrentDosageData();
+
+        if(CurrentVariant->typed)
+        {
+            UpdateLeftProb();
+            CreateMetaImputedData();
+            PrintVariantInfo();
+            PrintMetaImputedData();
+            if(myUserVariables.debug)
+            {
+                PrintWeightVariantInfo();
+                PrintMetaWeight();
+            }
+            UpdateRightProb();
+            NoCommonVariantsProcessed++;
+        }
+        else
+        {
+            CreateMetaImputedData();
+            PrintVariantInfo();
+            PrintMetaImputedData();
+        }
+
+        UpdateCurrentRecords();
+        NoVariantsProcessed++;
+    }
+    if (VcfPrintStringPointerLength > 0)
+    {
+        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
+        VcfPrintStringPointerLength = 0;
+    }
+    ifclose(vcfdosepartial);
+
+    if(myUserVariables.debug)
+    {
+        if(WeightPrintStringPointerLength > 0)
+            ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+        ifclose(vcfweightpartial);
+    }
+}
+
+
 void MetaMinimac::WalkOneStepRight()
 {
     for(int id=0; id<EndSamId-StartSamId; id++)
@@ -726,9 +784,6 @@ void MetaMinimac::WalkOneStepRight(int HapInBatch)
             ThisRight[i] += PrevRight[j]*r;
             ThisLeft[i] -= PrevLeft[j]*r_c;
         }
-
-        if(ThisLeft[i]<0)
-            int h=0;
     }
 
 
@@ -1179,6 +1234,50 @@ void MetaMinimac::AppendtoMainVcf()
     cout << "  Appending successful (" << time_tot % 60 << " seconds) !!!" << endl;
 }
 
+void MetaMinimac::PrintVariantInfo()
+{
+    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength, "%s\t%d\t%s\t%s\t%s\t.\tPASS\t%s\t%s",
+                                         CurrentVariant->chr.c_str(), CurrentVariant->bp, CurrentVariant->name.c_str(),
+                                         CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str(),
+                                         CreateInfo().c_str(), myUserVariables.formatStringForVCF.c_str());
+}
+
+string MetaMinimac::CreateInfo()
+{
+    double hapSum = CurrentHapDosageSum, hapSumSq = CurrentHapDosageSumSq;
+    double freq = hapSum*1.0/NoHaplotypes;
+    double maf = (freq > 0.5) ? (1.0 - freq) : freq;
+    double rsq = 0.0, evar = freq*(1-freq), ovar = 0.0;
+    if (NoHaplotypes > 2 & (hapSumSq - hapSum * hapSum / NoHaplotypes) >0 )
+    {
+        ovar = (hapSumSq - hapSum * hapSum / NoHaplotypes)/ NoHaplotypes;
+        rsq = ovar / (evar + 1e-30);
+    }
+
+    stringstream ss;
+    ss<< "AF=" << fixed << setprecision(5) << freq <<";MAF=";
+    ss<< fixed << setprecision(5) << maf <<";R2=";
+    ss<< fixed << setprecision(5) << rsq ;
+    ss<<";";
+
+    if(!myUserVariables.infoDetails)
+        return ".";
+    ss<<"NST=";
+    ss<<CurrentVariant->NoStudiesHasVariant;
+    for(int i=0; i<CurrentVariant->NoStudiesHasVariant; i++)
+    {
+        ss<<";S";
+        ss<<CurrentVariant->StudiesHasVariant[i]+1;
+    }
+
+    if(CurrentVariant->typed & (CurrentVariant->NoStudiesHasVariant == NoInPrefix))
+    {
+        ss<<";TRAINING";
+    }
+
+    return ss.str();
+}
+
 
 string MetaMinimac::CreateInfo(int id)
 {
@@ -1216,6 +1315,12 @@ string MetaMinimac::CreateInfo(int id)
     return ss.str();
 }
 
+void MetaMinimac::PrintWeightVariantInfo()
+{
+    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s:%d:%s:%s",
+                                            CurrentVariant->chr.c_str(), CurrentVariant->bp,
+                                            CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str());
+}
 
 void MetaMinimac::AppendtoMainWeightsFile()
 {
@@ -1237,9 +1342,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
     for(int i=0; i<NoCommonTypedVariants; i++)
     {
         CurrentVariant = &CommonTypedVariantList[i];
-        WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s:%d:%s:%s",
-                                                CurrentVariant->chr.c_str(), CurrentVariant->bp,
-                                                CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str());
+        PrintWeightVariantInfo();
         for(int j=1;j<=batchNo;j++)
         {
             line.clear();

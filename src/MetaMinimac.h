@@ -87,8 +87,9 @@ public:
     int PerformFinalAnalysis();
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);
-    void FlushPartialVcf();
     void OpenTempOutputFiles();
+    void FlushPartialVcf();
+    void FlushAllVcf();
 
     void InitiateProbs();
     void InitLeftProb(int SampleInBatch);
@@ -112,7 +113,10 @@ public:
     void MetaImpute(int Sample);
     void PrintMetaImputedData();
     void PrintMetaWeight();
+    void PrintVariantInfo();
+    void PrintWeightVariantInfo();
 
+    string CreateInfo();
     string CreateInfo(int i);
     void PrintDiploidDosage(float &x, float &y);
     void PrintHaploidDosage(float &x);
