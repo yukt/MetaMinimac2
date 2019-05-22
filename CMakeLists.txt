@@ -19,7 +19,10 @@ find_package(ZLIB REQUIRED)
 find_library(STATGEN_LIBRARY StatGen)
 add_executable(MetaM
          src/Main.cpp
-        src/MyVariables.h src/MetaMinimac.h src/MetaMinimac.cpp src/HaplotypeSet.h src/MarkovParameters.h src/HaplotypeSet.cpp src/simplex.h src/MarkovModel.h src/MarkovModel.cpp)
+        src/MyVariables.h src/MarkovParameters.h src/simplex.h
+        src/MetaMinimac.h src/MetaMinimac.cpp
+        src/HaplotypeSet.h src/HaplotypeSet.cpp
+        src/MarkovModel.h src/MarkovModel.cpp)
 target_link_libraries(MetaM ${STATGEN_LIBRARY} ${ZLIB_LIBRARIES})
 
 install(TARGETS MetaM RUNTIME DESTINATION bin)
