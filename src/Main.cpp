@@ -51,7 +51,11 @@ int main(int argc, char ** argv)
         return(-1);
     }
 
-    myAnalysis.Analyze();
+    int MySuccessStatus = -1;
+    MySuccessStatus = myAnalysis.Analyze();
+
+    if(MySuccessStatus != 0)
+        return(-1);
 
     int time_tot = time(0) - start_time;
 
