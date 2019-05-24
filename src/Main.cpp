@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include "Parameters.h"
 #include "MetaMinimac.h"
+#include <unistd.h>
 
 void MetaMinimacVersion();
 void helpFile();
