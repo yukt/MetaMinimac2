@@ -302,6 +302,39 @@ void MetaMinimac::FindCurrentMinimumPosition() {
         }
 
     }
+
+    else if (NoInPrefix==3)
+    {
+
+        CurrentFirstVariantBp=CurrentRecordFromStudy[0]->get1BasedPosition();
+
+        for(int i=1;i<NoInPrefix;i++)
+            if(CurrentRecordFromStudy[i]->get1BasedPosition() < CurrentFirstVariantBp)
+                CurrentFirstVariantBp=CurrentRecordFromStudy[i]->get1BasedPosition();
+
+        NoStudiesHasVariant=0;
+        VcfRecord *minRecord;
+        minRecord = new VcfRecord();
+        int Begin=0;
+        for(int i=0;i<NoInPrefix;i++)
+        {
+            if(CurrentRecordFromStudy[i]->get1BasedPosition() == CurrentFirstVariantBp)
+            {
+                if(Begin==0)
+                {
+                    Begin=1;
+                    minRecord=CurrentRecordFromStudy[i];
+                    StudiesHasVariant[NoStudiesHasVariant] = i;
+                    NoStudiesHasVariant++;
+                }
+                else if (IsVariantEqual(*minRecord, *CurrentRecordFromStudy[i])==1)
+                {
+                    StudiesHasVariant[NoStudiesHasVariant] = i;
+                    NoStudiesHasVariant++;
+                }
+            }
+        }
+    }
 }
 
 int MetaMinimac::IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2)
