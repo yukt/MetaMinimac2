@@ -3,6 +3,7 @@
 
 #include "VcfFileReader.h"
 #include "VcfHeader.h"
+#include "assert.h"
 
 using namespace std;
 
