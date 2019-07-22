@@ -64,10 +64,10 @@ int main(int argc, char ** argv)
     cout<<" ------------------------------------------------------------------------------"<<endl;
 
 
-    cout << "\n Program Successfully Implemented... \n ";
+    cout << "\n Meta-Imputation Successfully Implemented ... ";
 
 
-    printf("\n Total Run completed in %d hours, %d mins, %d seconds.\n",
+    printf("\n -- Total Run completed in %d hours, %d mins, %d seconds.\n",
            time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
 
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
@@ -78,9 +78,9 @@ int main(int argc, char ** argv)
 
 void MetaMinimacVersion()
 {
-    printf("\n\n -------------------------------------------------- \n");
-    printf("                   MetaMinimac2     \n");
-    printf(" --------------------------------------------------\n");
+    printf("\n\n ------------------------------------------------------------------------------ \n");
+    printf("             MetaMinimac2 -- An Efficient Tool for Meta-Imputation    \n");
+    printf(" ------------------------------------------------------------------------------\n");
     printf(" (c) 2019 - Ketian Yu, Sayantan Das, Goncalo Abecasis \n");
     cout<< " Version : " << VERSION<< ";\n Built   : " << DATE << " by " << USER << endl;
     cout << endl;

@@ -72,10 +72,10 @@ bool MetaMinimac::ParseInputVCFFiles()
     InputData.clear();
     InputData.resize(NoInPrefix);
 
-    cout<<endl<<  " Number of Studies                  : "<<NoInPrefix<<endl;
+    cout<<endl<<  " Number of Studies : "<<NoInPrefix<<endl;
     for(int i=0;i<NoInPrefix;i++)
     {
-        cout<<  " -- Study "<<i+1<<" Prefix                  : "<<InPrefixList[i]<<endl;
+        cout<<  " -- Study "<<i+1<<" Prefix : "<<InPrefixList[i]<<endl;
     }
 
 
@@ -98,7 +98,6 @@ bool MetaMinimac::ParseInputVCFFiles()
 bool MetaMinimac::CheckSampleNameCompatibility()
 {
     cout<<"\n Checking Sample Compatibility across files ... "<<endl;
-
     for(int i=0;i<NoInPrefix;i++)
     {
         if(!InputData[i].LoadSampleNames(InPrefixList[i].c_str()))
@@ -117,8 +116,6 @@ bool MetaMinimac::CheckSampleNameCompatibility()
     NoSamples = InputData[0].numSamples;
     if (myUserVariables.VcfBuffer > NoSamples)
         myUserVariables.VcfBuffer = NoSamples;
-
-    cout<<" -- Successful !!! "<<endl;
     return true;
 }
 
@@ -262,6 +259,7 @@ bool MetaMinimac::doesExistFile(String filename)
 bool MetaMinimac::LoadVariantInfo()
 {
     cout<<"\n Scanning input VCFs for SNPs ... "<<endl;
+    int time_start = time(0);
     VariantList.clear();
     NoOffsetThisBlock.clear();
     NoVariantsProcessed = 0;
@@ -278,6 +276,7 @@ bool MetaMinimac::LoadVariantInfo()
     NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
     assert(NoVariantsProcessed==NoVariants);
     cout<<" -- Found " << NoSamples <<" samples on " << NoVariants <<" sites ("<< NoCommonTypedVariants <<" common typed)! "<<endl;
+    cout<<" -- Successful (" << (time(0)-time_start) << " seconds) !!!" << endl;
     return true;
 
 }
@@ -419,7 +418,7 @@ int MetaMinimac::PerformFinalAnalysis()
     {
         batchNo++;
         EndSamId = StartSamId + (maxVcfSample) < NoSamples ? StartSamId + (maxVcfSample) : NoSamples;
-        cout << "  Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
+        cout << " Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
 
         start_time = time(0);
 
@@ -445,7 +444,7 @@ int MetaMinimac::PerformFinalAnalysis()
         CloseStreamInputDosageFiles();
 
         time_tot = time(0) - start_time;
-        cout << "      Successful (" << time_tot % 60 << " seconds) !!! " << endl;
+        cout << " -- Successful (" << time_tot << " seconds) !!! " << endl;
 
         StartSamId = EndSamId;
 
@@ -1207,7 +1206,7 @@ void MetaMinimac::PrintWeightForHaplotype(int haploId)
 void MetaMinimac::AppendtoMainVcf()
 {
     cout << endl;
-    cout << "  Appending to final output VCF File : " << myUserVariables.outfile + ".metaDose.vcf.gz" <<endl;
+    cout << "\n Appending to final output VCF File : " << myUserVariables.outfile + ".metaDose.vcf.gz" <<endl;
 
     int start_time = time(0);
     VcfPrintStringPointerLength=0;
@@ -1264,7 +1263,7 @@ void MetaMinimac::AppendtoMainVcf()
     ifclose(vcfdosepartial);
 
     int time_tot = time(0) - start_time;
-    cout << "  Appending successful (" << time_tot % 60 << " seconds) !!!" << endl;
+    cout << " -- Successful (" << time_tot << " seconds) !!!" << endl;
 }
 
 void MetaMinimac::PrintVariantInfo()
@@ -1357,6 +1356,8 @@ void MetaMinimac::PrintWeightVariantInfo()
 
 void MetaMinimac::AppendtoMainWeightsFile()
 {
+    cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights.vcf.gz" <<endl;
+    int start_time = time(0);
     WeightPrintStringPointerLength=0;
     metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.vcf.gz", "a", InputFile::BGZF);
     vector<IFILE> weightpartialList(batchNo);
@@ -1405,4 +1406,6 @@ void MetaMinimac::AppendtoMainWeightsFile()
         remove(tempFileIndex.c_str());
     }
     ifclose(metaWeight);
+    int tot_time = time(0) - start_time;
+    cout << " -- Successful (" << tot_time << " seconds) !!!" << endl;
 }
