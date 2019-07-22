@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.2)
-project(MetaM VERSION 2.0.0)
+project(MetaMinimac2 VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 11)
 execute_process(COMMAND date OUTPUT_VARIABLE DATE OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -17,12 +17,12 @@ endif()
 
 find_package(ZLIB REQUIRED)
 find_library(STATGEN_LIBRARY StatGen)
-add_executable(MetaM
+add_executable(MetaMinimac2
          src/Main.cpp
         src/MyVariables.h src/MarkovParameters.h src/simplex.h
         src/MetaMinimac.h src/MetaMinimac.cpp
         src/HaplotypeSet.h src/HaplotypeSet.cpp
         src/MarkovModel.h src/MarkovModel.cpp)
-target_link_libraries(MetaM ${STATGEN_LIBRARY} ${ZLIB_LIBRARIES})
+target_link_libraries(MetaMinimac2 ${STATGEN_LIBRARY} ${ZLIB_LIBRARIES})
 
-install(TARGETS MetaM RUNTIME DESTINATION bin)
+install(TARGETS MetaMinimac2 RUNTIME DESTINATION bin)

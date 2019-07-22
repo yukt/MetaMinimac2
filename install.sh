@@ -8,4 +8,4 @@ cd release-build/
 echo -e "Generating MakeFiles ..."
 cmake -DCMAKE_TOOLCHAIN_FILE=../cget/cget/cget.cmake -DCMAKE_BUILD_TYPE=Release ..
 make
-echo "Binary created at /release-build/MetaM"
+echo "Binary created at /release-build/MetaMinimac2"
