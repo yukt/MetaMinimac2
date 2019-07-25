@@ -18,17 +18,17 @@ int main(int argc, char ** argv)
                     {"input",required_argument,NULL,'i'},
                     {"output",required_argument,NULL,'o'},
                     {"log",no_argument,NULL,'l'},
-                    {"debug",no_argument,NULL,'d'},
+                    {"weight",no_argument,NULL,'w'},
                     {"help",no_argument,NULL,'h'},
                     {NULL,0,NULL,0}
             };
 
-    while ((c = getopt_long(argc, argv, "i:o:hld",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "i:o:hlw",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'i': myAnalysis.myUserVariables.inputFiles = optarg; break;
             case 'o': myAnalysis.myUserVariables.outfile = optarg; break;
-            case 'd': myAnalysis.myUserVariables.debug=true; break;
+            case 'w': myAnalysis.myUserVariables.debug=true; break;
             case 'h': help=true; break;
             case 'l': log=true; break;
             case '?': helpFile(); return 1;
@@ -63,11 +63,7 @@ int main(int argc, char ** argv)
     cout<<"                                END OF PROGRAM                                 "<<endl;
     cout<<" ------------------------------------------------------------------------------"<<endl;
 
-
-    cout << "\n Meta-Imputation Successfully Implemented ... ";
-
-
-    printf("\n -- Total Run completed in %d hours, %d mins, %d seconds.\n",
+    printf("\n -- Meta-Imputation Completed in %d hours, %d mins, %d seconds.\n",
            time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
 
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
@@ -94,12 +90,12 @@ void helpFile()
     printf( " Options :\n");
     printf( "   -i, --input  <prefix1 prefix2 ...>  Prefixes of input data to meta-impute\n");
     printf( "   -o, --output <prefix>               Output prefix [MetaMinimac.Output] \n");
-    printf( "   -f, --format <string>               Comma separated FORMAT tags [GT,DS,HDS]\n");
-    printf( "   -s, --skipInfo                      Skip INFO in output [FALSE] \n");
-    printf( "   -n, --nobgzip                       Output unzipped file [FALSE]\n");
-    printf( "   -b, --buffer                        Print Buffer [1e8] \n");
-    printf( "   -d, --debug                         Debug mode [FALSE] \n");
-    printf( "   -l, --log                           Save logfile [TRUE] \n");
+//    printf( "   -f, --format <string>               Comma separated FORMAT tags [GT,DS,HDS]\n");
+//    printf( "   -s, --skipInfo                      Skip INFO in output [FALSE] \n");
+//    printf( "   -n, --nobgzip                       Output unzipped file [FALSE]\n");
+//    printf( "   -b, --buffer                        Print Buffer [1e8] \n");
+    printf( "   -w, --weight                        Output weights [FALSE] \n");
+    printf( "   -l, --log                           Save logfile [FALSE] \n");
 //    printf("\n URL = http://genome.sph.umich.edu/wiki/MetaMinimac\n");
 //    printf(" GIT = https://github.com/Santy-8128/MetaMinimac\n");
 //    printf("\n Visit website for more details ...\n");

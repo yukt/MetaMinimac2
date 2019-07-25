@@ -43,14 +43,14 @@ public:
     string EmpDoseFileName;
 
     // Summary Variables
-    int         numHaplotypes,numSamples;
+    int         numSamples;
     int         numActualHaps;
-    int         numMarkers;
     vector<string> individualName;
     vector<int> SampleNoHaplotypes;
     vector<int> CummulativeSampleNoHaplotypes;
     vector<variant> VariantList;
     vector<variant> TypedVariantList;
+    int noMarkers;
     int noTypedMarkers;
     string finChromosome;
 
@@ -62,20 +62,14 @@ public:
 
 
     // FUNCTIONS
-    void        LoadEmpVariantList                      ();
-    void        LoadVariantList                         (string inFile);
     bool        CheckSampleConsistency                  (int tempNoSamples, vector<string> &tempindividualName, vector<int> tempSampleNoHaplotypes, string File1, string File2);
-    void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList);
     void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId);
-    void        SortCommonGenotypeList                  (std::unordered_set<string> &CommonGenotypeVariantNameList, vector<string> &SortedCommonGenoList, vector<variant> &CommonTypedVariantList);
     bool        CheckSuffixFile                         (string prefix, const char* suffix, string &FinalName);
-    void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype);
     void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
 
 
     bool        GetSampleInformation                    (string filename);
     bool        GetSampleInformationfromHDS                    (string filename);
-    void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords);
     void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
     bool        LoadSampleNames                         (string prefix);
     bool        doesExistFile                           (string filename);

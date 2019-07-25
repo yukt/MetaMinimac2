@@ -114,6 +114,8 @@ bool MetaMinimac::CheckSampleNameCompatibility()
 
     NoHaplotypes = InputData[0].numActualHaps;
     NoSamples = InputData[0].numSamples;
+    cout<<" -- Found "<< NoSamples << " samples (" << NoHaplotypes << " haplotypes)." <<endl;
+
     if (myUserVariables.VcfBuffer > NoSamples)
         myUserVariables.VcfBuffer = NoSamples;
     return true;
@@ -133,6 +135,8 @@ void MetaMinimac::OpenStreamInputDosageFiles(bool siteOnly)
         InputDosageStream[i]->open( (GetDosageFileFullName(InPrefixList[i])).c_str() , header);
         InputDosageStream[i]->setSiteOnly(siteOnly);
         InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i]);
+        InputData[i].noMarkers = 0;
+        InputData[i].noTypedMarkers = 0;
     }
     finChromosome = CurrentRecordFromStudy[0]->getChromStr();
 }
@@ -197,7 +201,7 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
 
     if(myUserVariables.debug)
     {
-        metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.vcf.gz", "wb", InputFile::BGZF);
+        metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.gz", "wb", InputFile::BGZF);
         WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
         if(metaWeight==NULL)
         {
@@ -263,6 +267,11 @@ bool MetaMinimac::LoadVariantInfo()
     VariantList.clear();
     NoOffsetThisBlock.clear();
     NoVariantsProcessed = 0;
+
+    // Scan through vcf files, looking for commonly typed variants.
+    // Load common typed variants info -> CommonTypedVariantList.
+    // Load common typed variants name -> CommonGenotypeVariantNameList.
+    // Load all variants info -> VariantList.
     do
     {
         FindCurrentMinimumPosition();
@@ -275,7 +284,13 @@ bool MetaMinimac::LoadVariantInfo()
     NoVariants = VariantList.size();
     NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
     assert(NoVariantsProcessed==NoVariants);
-    cout<<" -- Found " << NoSamples <<" samples on " << NoVariants <<" sites ("<< NoCommonTypedVariants <<" common typed)! "<<endl;
+
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        cout<<" -- Study "<<i+1<<" #Sites = "<<InputData[i].noMarkers<<" ( #Genotyped = "<<InputData[i].noTypedMarkers <<" )"<<endl;
+    }
+
+    cout<<" -- Found " << NoVariants <<" sites in total with "<< NoCommonTypedVariants <<" commonly genotyped! "<<endl;
     cout<<" -- Successful (" << (time(0)-time_start) << " seconds) !!!" << endl;
     return true;
 
@@ -302,7 +317,7 @@ void MetaMinimac::FindCurrentMinimumPosition() {
 
     }
 
-    else if (NoInPrefix==3)
+    else
     {
 
         CurrentFirstVariantBp=CurrentRecordFromStudy[0]->get1BasedPosition();
@@ -356,7 +371,9 @@ void MetaMinimac::ReadCurrentVariantInfo()
 
     for(int i=0; i<NoStudiesHasVariant; i++)
     {
-        tempVariant.StudiesHasVariant[i] = StudiesHasVariant[i];
+        int index = StudiesHasVariant[i];
+        tempVariant.StudiesHasVariant[i] = index;
+        InputData[index].noMarkers++;
     }
 
     VcfRecord *record = CurrentRecordFromStudy[StudiesHasVariant[0]];
@@ -364,12 +381,21 @@ void MetaMinimac::ReadCurrentVariantInfo()
     tempVariant.name=record->getIDStr();
     tempVariant.altAlleleString = record->getAltStr();
     tempVariant.refAlleleString = record->getRefStr();
-    if(record->getInfo().getString("IMPUTED") == NULL & NoStudiesHasVariant==NoInPrefix)
+
+    if(record->getInfo().getString("IMPUTED") == NULL)
     {
-        tempVariant.typed = true;
-        CommonTypedVariantList.push_back(tempVariant);
-        CommonGenotypeVariantNameList.push_back(tempVariant.name);
-        NoOffsetThisBlock.push_back(NoVariantsProcessed);
+        for(int i=0; i<NoStudiesHasVariant; i++)
+        {
+            InputData[StudiesHasVariant[i]].noTypedMarkers++;
+        }
+
+        if(NoStudiesHasVariant==NoInPrefix)
+        {
+            tempVariant.typed = true;
+            CommonTypedVariantList.push_back(tempVariant);
+            CommonGenotypeVariantNameList.push_back(tempVariant.name);
+            NoOffsetThisBlock.push_back(NoVariantsProcessed);
+        }
     }
     VariantList.push_back(tempVariant);
 
@@ -394,8 +420,12 @@ void MetaMinimac::UpdateCurrentRecords()
 
 void MetaMinimac::LoadLooDosage()
 {
+    printf(" -- Loading Empirical Dosage Data ...\n");
+    int start_time = time(0);
     for(int i=0; i<NoInPrefix; i++)
         InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList, StartSamId, EndSamId);
+    int tot_time = time(0) - start_time;
+//    printf("    -- Done (%ds).\n", tot_time);
 }
 
 int MetaMinimac::PerformFinalAnalysis()
@@ -418,16 +448,26 @@ int MetaMinimac::PerformFinalAnalysis()
     {
         batchNo++;
         EndSamId = StartSamId + (maxVcfSample) < NoSamples ? StartSamId + (maxVcfSample) : NoSamples;
-        cout << " Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
+        cout << "\n Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
 
         start_time = time(0);
 
+        // Read Data From empiricalDose
         LoadLooDosage();
+
+        // Calculate left probs
+        printf(" -- Calculating Weights ...\n");
+        int time_start_forward = time(0);
         InitiateProbs();
         WalkLeft();
+        int time_tot_forward = time(0) - time_start_forward;
+//        printf("    -- Done (%ds).\n", time_tot_forward);
 
         OpenStreamInputDosageFiles(false);
 
+        // Calculate right probs and save final probs
+        printf(" -- Gathering Dosage Data and Saving Results ...\n");
+        int time_start_backward = time(0);
         if(maxVcfSample<NoSamples)
         {
             HapDosageSum.resize(NoVariants, 0.0);
@@ -439,6 +479,8 @@ int MetaMinimac::PerformFinalAnalysis()
         {
             FlushAllVcf();
         }
+        int time_tot_backward = time(0) - time_start_backward;
+//        printf("    -- Done (%ds).\n", time_tot_backward);
 
 
         CloseStreamInputDosageFiles();
@@ -658,7 +700,6 @@ void MetaMinimac::ProcessTypedLeftProb(int HapInBatch)
 
 void MetaMinimac::OpenTempOutputFiles()
 {
-    cout << "      Saving in temporary VCF file ... " << endl;
     VcfPrintStringPointerLength=0;
     stringstream ss;
     ss << (batchNo);
@@ -669,7 +710,7 @@ void MetaMinimac::OpenTempOutputFiles()
     if(myUserVariables.debug)
     {
         string PartialWeightFileName(myUserVariables.outfile);
-        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".vcf.gz";
+        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".gz";
         vcfweightpartial = ifopen(PartialWeightFileName.c_str(), "wb", InputFile::BGZF);
         WeightPrintStringPointerLength = 0;
     }
@@ -730,7 +771,7 @@ void MetaMinimac::FlushAllVcf()
     if(myUserVariables.debug)
     {
         WeightPrintStringPointerLength=0;
-        vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights.vcf.gz", "a", InputFile::BGZF);
+        vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights.gz", "a", InputFile::BGZF);
     }
 
     NoVariantsProcessed = 0;
@@ -1359,7 +1400,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
     cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights.vcf.gz" <<endl;
     int start_time = time(0);
     WeightPrintStringPointerLength=0;
-    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.vcf.gz", "a", InputFile::BGZF);
+    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.gz", "a", InputFile::BGZF);
     vector<IFILE> weightpartialList(batchNo);
 
     for(int i=1; i<=batchNo; i++)
@@ -1367,7 +1408,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
         stringstream ss;
         ss << (i);
         string PartialWeightFileName(myUserVariables.outfile);
-        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".vcf.gz";
+        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".gz";
         weightpartialList[i-1] = ifopen(PartialWeightFileName.c_str(), "r");
     }
 
@@ -1402,7 +1443,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
         stringstream ss;
         ss << (i);
         string tempFileIndex(myUserVariables.outfile);
-        tempFileIndex += ".metaWeights.part."+(string)(ss.str())+".vcf.gz";
+        tempFileIndex += ".metaWeights.part."+(string)(ss.str())+".gz";
         remove(tempFileIndex.c_str());
     }
     ifclose(metaWeight);
