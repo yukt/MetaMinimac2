@@ -18,6 +18,7 @@ public:
     String formatStringForVCF;
     bool GT, DS, HDS, GP, SD;
     bool gzip, nobgzip;
+    bool log;
 
     string CommandLine;
 
@@ -40,7 +41,21 @@ public:
         gzip = true;
         nobgzip = false;
         VcfBuffer = 200;
+        log = false;
     };
+
+    void Status()
+    {
+        cout << " Command Line Options: " << endl;
+        printf( "      --input [%s],\n", inputFiles.c_str());
+        printf( "      --output [%s],\n", outfile.c_str());
+        printf( "      --format [%s],\n", formatString.c_str());
+        printf( "      --skipInfo %s,", infoDetails?"":"[ON]");
+        printf( " --nobgzip %s,", nobgzip?"[ON]":"");
+        printf( " --weight %s,", debug?"[ON]":"");
+        printf( " --log %s", log?"[ON]":"");
+        printf("\n\n");
+    }
 
     void CreateCommandLine(int argc, char ** argv)
     {

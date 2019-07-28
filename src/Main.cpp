@@ -9,47 +9,56 @@ void helpFile();
 int main(int argc, char ** argv)
 {
     MetaMinimac myAnalysis;
-    ParameterList inputParameters;
-    bool log = false, help = false;
+    bool help = false;
 
     int c;
     static struct option loptions[] =
             {
                     {"input",required_argument,NULL,'i'},
                     {"output",required_argument,NULL,'o'},
+                    {"vcfBuffer",required_argument,NULL,'v'},
+                    {"format",required_argument,NULL,'f'},
+                    {"skipInfo",no_argument,NULL,'s'},
+                    {"nobgzip",no_argument,NULL,'n'},
                     {"log",no_argument,NULL,'l'},
                     {"weight",no_argument,NULL,'w'},
                     {"help",no_argument,NULL,'h'},
                     {NULL,0,NULL,0}
             };
 
-    while ((c = getopt_long(argc, argv, "i:o:hlw",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "i:o:v:f:snlwh",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'i': myAnalysis.myUserVariables.inputFiles = optarg; break;
             case 'o': myAnalysis.myUserVariables.outfile = optarg; break;
             case 'w': myAnalysis.myUserVariables.debug=true; break;
+            case 'f': myAnalysis.myUserVariables.formatString = optarg; break;
+            case 's': myAnalysis.myUserVariables.infoDetails = false; break;
+            case 'n': myAnalysis.myUserVariables.nobgzip=true; break;
+            case 'v': myAnalysis.myUserVariables.VcfBuffer=atoi(optarg); break;
             case 'h': help=true; break;
-            case 'l': log=true; break;
+            case 'l': myAnalysis.myUserVariables.log=true; break;
             case '?': helpFile(); return 1;
             default:  printf("[ERROR:] Unknown argument: %s\n", optarg);
         }
+    }
+
+    if (help)
+    {
+        helpFile();
+        return(-1);
     }
 
     int start_time = time(0);
     myAnalysis.myUserVariables.CreateCommandLine(argc,argv);
 
     FILE *LogFile=NULL;
-    if(log)
+    if(myAnalysis.myUserVariables.log)
         LogFile=freopen(myAnalysis.myUserVariables.outfile +".logfile","w",stdout);
     dup2(fileno(stdout), fileno(stderr));
 
     MetaMinimacVersion();
-    if (help)
-    {
-        helpFile();
-        return(-1);
-    }
+    myAnalysis.myUserVariables.Status();
 
     int MySuccessStatus = -1;
     MySuccessStatus = myAnalysis.Analyze();
@@ -79,27 +88,27 @@ void MetaMinimacVersion()
     printf(" ------------------------------------------------------------------------------\n");
     printf(" (c) 2019 - Ketian Yu, Sayantan Das, Goncalo Abecasis \n");
     cout<< " Version : " << VERSION<< ";\n Built   : " << DATE << " by " << USER << endl;
+    printf("\n URL = http://genome.sph.umich.edu/wiki/MetaMinimac2");
+    printf("\n GIT = https://github.com/yukt/MetaMinimac2.git\n");
     cout << endl;
 }
 
 void helpFile()
 {
+    MetaMinimacVersion();
     printf( "\n About   : Combine GWAS data imputed against different panels  \n");
     printf( " Usage   : MetaMinimac2 [options] \n");
     printf( "\n");
     printf( " Options :\n");
-    printf( "   -i, --input  <prefix1 prefix2 ...>  Prefixes of input data to meta-impute\n");
+    printf( "   -i, --input  <prefix1:prefix2 ...>  Colon-separated prefixes of input data to meta-impute.\n");
     printf( "   -o, --output <prefix>               Output prefix [MetaMinimac.Output] \n");
-//    printf( "   -f, --format <string>               Comma separated FORMAT tags [GT,DS,HDS]\n");
-//    printf( "   -s, --skipInfo                      Skip INFO in output [FALSE] \n");
-//    printf( "   -n, --nobgzip                       Output unzipped file [FALSE]\n");
-//    printf( "   -b, --buffer                        Print Buffer [1e8] \n");
-    printf( "   -w, --weight                        Output weights [FALSE] \n");
-    printf( "   -l, --log                           Save logfile [FALSE] \n");
-//    printf("\n URL = http://genome.sph.umich.edu/wiki/MetaMinimac\n");
-//    printf(" GIT = https://github.com/Santy-8128/MetaMinimac\n");
-//    printf("\n Visit website for more details ...\n");
-
+    printf( "   -f, --format <string>               Comma-separated FORMAT tags [GT,DS,HDS]\n");
+//    printf( "   -v, --vcfBuffer <int>               Maximum number of samples processed at a time [200] \n");
+    printf( "   -s, --skipInfo                      If ON, the INFO fields are removed from the output file.\n");
+    printf( "   -n, --nobgzip                       If ON, output files will NOT be bgzipped.\n");
+    printf( "   -w, --weight                        If ON, weights will be saved in $prefix.metaWeights(.gz)\n");
+    printf( "   -l, --log                           If ON, log will be written to $prefix.logfile. \n");
+    printf( "   -h, --help                          If ON, detailed help on options and usage. \n");
     cout<<endl<<endl;
     return;
 }

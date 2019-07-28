@@ -152,11 +152,11 @@ void MetaMinimac::CloseStreamInputDosageFiles()
 
 bool MetaMinimac::OpenStreamOutputDosageFiles()
 {
-    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf.gz", "wb", InputFile::BGZF);
+    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     VcfPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
     if(vcfdosepartial==NULL)
     {
-        cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf.gz" <<endl;
+        cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
         return false;
     }
     ifprintf(vcfdosepartial,"##fileformat=VCFv4.1\n");
@@ -201,11 +201,11 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
 
     if(myUserVariables.debug)
     {
-        metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.gz", "wb", InputFile::BGZF);
+        metaWeight = ifopen(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
         WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
         if(metaWeight==NULL)
         {
-            cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights.vcf.gz" <<endl;
+            cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
             return false;
         }
         ifprintf(metaWeight,"##fileformat=NA\n");
@@ -704,14 +704,14 @@ void MetaMinimac::OpenTempOutputFiles()
     stringstream ss;
     ss << (batchNo);
     string PartialVcfFileName(myUserVariables.outfile);
-    PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf.gz";
-    vcfdosepartial = ifopen(PartialVcfFileName.c_str(), "wb", InputFile::BGZF);
+    PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf" + (myUserVariables.gzip ? ".gz" : "");
+    vcfdosepartial = ifopen(PartialVcfFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
 
     if(myUserVariables.debug)
     {
         string PartialWeightFileName(myUserVariables.outfile);
-        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".gz";
-        vcfweightpartial = ifopen(PartialWeightFileName.c_str(), "wb", InputFile::BGZF);
+        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str()) + (myUserVariables.gzip ? ".gz" : "");
+        vcfweightpartial = ifopen(PartialWeightFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
         WeightPrintStringPointerLength = 0;
     }
 
@@ -767,11 +767,11 @@ void MetaMinimac::FlushPartialVcf()
 void MetaMinimac::FlushAllVcf()
 {
     VcfPrintStringPointerLength=0;
-    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf.gz", "a", InputFile::BGZF);
+    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     if(myUserVariables.debug)
     {
         WeightPrintStringPointerLength=0;
-        vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights.gz", "a", InputFile::BGZF);
+        vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     }
 
     NoVariantsProcessed = 0;
@@ -1247,11 +1247,11 @@ void MetaMinimac::PrintWeightForHaplotype(int haploId)
 void MetaMinimac::AppendtoMainVcf()
 {
     cout << endl;
-    cout << "\n Appending to final output VCF File : " << myUserVariables.outfile + ".metaDose.vcf.gz" <<endl;
+    cout << "\n Appending to final output VCF File : " << myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
 
     int start_time = time(0);
     VcfPrintStringPointerLength=0;
-    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf.gz", "a", InputFile::BGZF);
+    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf" + (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     vector<IFILE> vcfdosepartialList(batchNo);
 
     for(int i=1;i<=batchNo;i++)
@@ -1259,7 +1259,7 @@ void MetaMinimac::AppendtoMainVcf()
         stringstream ss;
         ss << (i);
         string PartialVcfFileName(myUserVariables.outfile);
-        PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf.gz";
+        PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf"+ (myUserVariables.gzip ? ".gz" : "");
         vcfdosepartialList[i-1] = ifopen(PartialVcfFileName.c_str(), "r");
     }
 
@@ -1298,7 +1298,7 @@ void MetaMinimac::AppendtoMainVcf()
         stringstream ss;
         ss << (i);
         string tempFileIndex(myUserVariables.outfile);
-        tempFileIndex += ".metaDose.part."+(string)(ss.str())+".vcf.gz";
+        tempFileIndex += ".metaDose.part."+(string)(ss.str())+".vcf"+ (myUserVariables.gzip ? ".gz" : "");
         remove(tempFileIndex.c_str());
     }
     ifclose(vcfdosepartial);
@@ -1397,10 +1397,10 @@ void MetaMinimac::PrintWeightVariantInfo()
 
 void MetaMinimac::AppendtoMainWeightsFile()
 {
-    cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights.vcf.gz" <<endl;
+    cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights" + (myUserVariables.gzip ? ".gz" : "") <<endl;
     int start_time = time(0);
     WeightPrintStringPointerLength=0;
-    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights.gz", "a", InputFile::BGZF);
+    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     vector<IFILE> weightpartialList(batchNo);
 
     for(int i=1; i<=batchNo; i++)
@@ -1408,7 +1408,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
         stringstream ss;
         ss << (i);
         string PartialWeightFileName(myUserVariables.outfile);
-        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+".gz";
+        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
         weightpartialList[i-1] = ifopen(PartialWeightFileName.c_str(), "r");
     }
 
@@ -1443,7 +1443,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
         stringstream ss;
         ss << (i);
         string tempFileIndex(myUserVariables.outfile);
-        tempFileIndex += ".metaWeights.part."+(string)(ss.str())+".gz";
+        tempFileIndex += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
         remove(tempFileIndex.c_str());
     }
     ifclose(metaWeight);
