@@ -60,11 +60,17 @@ int main(int argc, char ** argv)
     MetaMinimacVersion();
     myAnalysis.myUserVariables.Status();
 
-    int MySuccessStatus = -1;
+    String compStatus;
+    String MySuccessStatus="Error";
+
     MySuccessStatus = myAnalysis.Analyze();
 
-    if(MySuccessStatus != 0)
+    if(MySuccessStatus!="Success")
+    {
+        compStatus=MySuccessStatus;
+        PhoneHome::completionStatus(compStatus.c_str());
         return(-1);
+    }
 
     int time_tot = time(0) - start_time;
 
@@ -76,6 +82,9 @@ int main(int argc, char ** argv)
            time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
 
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
+
+    compStatus="Success";
+    PhoneHome::completionStatus(compStatus.c_str());
 
     return 0;
 }

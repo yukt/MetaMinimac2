@@ -11,9 +11,9 @@ using namespace std;
 
 const int MAXBP = 999999999;
 
-int MetaMinimac::Analyze()
+String MetaMinimac::Analyze()
 {
-    if(!myUserVariables.CheckValidity()) return -1;
+    if(!myUserVariables.CheckValidity()) return "Command.Line.Error";
 
 
     cout<<" ------------------------------------------------------------------------------"<<endl;
@@ -23,13 +23,13 @@ int MetaMinimac::Analyze()
     if (!ParseInputVCFFiles())
     {
         cout << "\n Program Exiting ... \n\n";
-        return -1;
+        return "Command.Line.Error";
     }
 
     if (!CheckSampleNameCompatibility())
     {
         cout << "\n Program Exiting ... \n\n";
-        return -1;
+        return "Input.VCF.Dose.Error";
     }
 
 
@@ -38,13 +38,16 @@ int MetaMinimac::Analyze()
     {
         cout <<" Please check your write permissions in the output directory\n OR maybe the output directory does NOT exist ...\n";
         cout << "\n Program Exiting ... \n\n";
-        return -1;
+        return "File.Write.Error";
     }
 
-    LoadVariantInfo();
-    CloseStreamInputDosageFiles();
+    if (!LoadVariantInfo())
+    {
+        cout << "\n Program Exiting ... \n\n";
+        return "Input.VCF.Dose.Error";
+    }
 
-//    LoadLooDosage();
+    CloseStreamInputDosageFiles();
 
     return PerformFinalAnalysis();
 }
@@ -412,23 +415,15 @@ void MetaMinimac::UpdateCurrentRecords()
     }
 }
 
-//void MetaMinimac::LoadLooDosage()
-//{
-//    for(int i=0; i<NoInPrefix; i++)
-//        InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList);
-//}
 
 void MetaMinimac::LoadLooDosage()
 {
     printf(" -- Loading Empirical Dosage Data ...\n");
-    int start_time = time(0);
     for(int i=0; i<NoInPrefix; i++)
         InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList, StartSamId, EndSamId);
-    int tot_time = time(0) - start_time;
-//    printf("    -- Done (%ds).\n", tot_time);
 }
 
-int MetaMinimac::PerformFinalAnalysis()
+String MetaMinimac::PerformFinalAnalysis()
 {
     cout << endl;
     cout << " ------------------------------------------------------------------------------" << endl;
@@ -457,17 +452,13 @@ int MetaMinimac::PerformFinalAnalysis()
 
         // Calculate left probs
         printf(" -- Calculating Weights ...\n");
-        int time_start_forward = time(0);
         InitiateProbs();
         WalkLeft();
-        int time_tot_forward = time(0) - time_start_forward;
-//        printf("    -- Done (%ds).\n", time_tot_forward);
 
         OpenStreamInputDosageFiles(false);
 
         // Calculate right probs and save final probs
         printf(" -- Gathering Dosage Data and Saving Results ...\n");
-        int time_start_backward = time(0);
         if(maxVcfSample<NoSamples)
         {
             HapDosageSum.resize(NoVariants, 0.0);
@@ -479,8 +470,6 @@ int MetaMinimac::PerformFinalAnalysis()
         {
             FlushAllVcf();
         }
-        int time_tot_backward = time(0) - time_start_backward;
-//        printf("    -- Done (%ds).\n", time_tot_backward);
 
 
         CloseStreamInputDosageFiles();
@@ -504,7 +493,7 @@ int MetaMinimac::PerformFinalAnalysis()
         }
     }
 
-    return 0;
+    return "Success";
 }
 
 

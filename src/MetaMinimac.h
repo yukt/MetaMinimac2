@@ -66,7 +66,7 @@ public:
 
 
 
-    int Analyze();
+    String Analyze();
 
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
@@ -84,7 +84,7 @@ public:
 
     void LoadLooDosage();
 
-    int PerformFinalAnalysis();
+    String PerformFinalAnalysis();
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);
     void OpenTempOutputFiles();
