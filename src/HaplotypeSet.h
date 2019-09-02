@@ -63,13 +63,16 @@ public:
 
     // FUNCTIONS
     bool        CheckSampleConsistency                  (int tempNoSamples, vector<string> &tempindividualName, vector<int> tempSampleNoHaplotypes, string File1, string File2);
+    void        SortCommonGenotypeList                  (std::unordered_set<string> &CommonGenotypeVariantNameList, vector<string> &SortedCommonGenoList, vector<variant> &CommonTypedVariantList);
     void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId);
     bool        CheckSuffixFile                         (string prefix, const char* suffix, string &FinalName);
     void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
 
 
     bool        GetSampleInformation                    (string filename);
-    bool        GetSampleInformationfromHDS                    (string filename);
+    bool        GetSampleInformationfromHDS             (string filename);
+    void        LoadEmpVariantList                      ();
+    void        ClearEmpVariantList                     ();
     void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
     bool        LoadSampleNames                         (string prefix);
     bool        doesExistFile                           (string filename);

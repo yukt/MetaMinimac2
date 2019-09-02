@@ -32,22 +32,18 @@ String MetaMinimac::Analyze()
         return "Input.VCF.Dose.Error";
     }
 
+    if (!LoadEmpVariantInfo())
+    {
+        cout << "\n Program Exiting ... \n\n";
+        return "Input.VCF.Dose.Error";
+    }
 
-    OpenStreamInputDosageFiles(true);
     if (!OpenStreamOutputDosageFiles())
     {
         cout <<" Please check your write permissions in the output directory\n OR maybe the output directory does NOT exist ...\n";
         cout << "\n Program Exiting ... \n\n";
         return "File.Write.Error";
     }
-
-    if (!LoadVariantInfo())
-    {
-        cout << "\n Program Exiting ... \n\n";
-        return "Input.VCF.Dose.Error";
-    }
-
-    CloseStreamInputDosageFiles();
 
     return PerformFinalAnalysis();
 }
@@ -262,42 +258,97 @@ bool MetaMinimac::doesExistFile(String filename)
     }
 }
 
-
-bool MetaMinimac::LoadVariantInfo()
+bool MetaMinimac::LoadEmpVariantInfo()
 {
-    cout<<"\n Scanning input VCFs for SNPs ... "<<endl;
+    cout<<"\n Scanning input empirical VCFs for commonly typed SNPs ... "<<endl;
     int time_start = time(0);
-    VariantList.clear();
-    NoOffsetThisBlock.clear();
-    NoVariantsProcessed = 0;
-
-    // Scan through vcf files, looking for commonly typed variants.
-    // Load common typed variants info -> CommonTypedVariantList.
-    // Load common typed variants name -> CommonGenotypeVariantNameList.
-    // Load all variants info -> VariantList.
-    do
+    for(int i=0;i<NoInPrefix;i++)
     {
-        FindCurrentMinimumPosition();
-        if(CurrentFirstVariantBp==MAXBP)
-            break;
-        ReadCurrentVariantInfo();
-        UpdateCurrentRecords();
-    }while(true);
-
-    NoVariants = VariantList.size();
-    NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
-    assert(NoVariantsProcessed==NoVariants);
-
-    for(int i=0; i<NoInPrefix; i++)
-    {
-        cout<<" -- Study "<<i+1<<" #Sites = "<<InputData[i].noMarkers<<" ( #Genotyped = "<<InputData[i].noTypedMarkers <<" )"<<endl;
+        InputData[i].LoadEmpVariantList();
+        cout<<" -- Study "<<i+1<<" #Genotyped Sites = "<<InputData[i].noTypedMarkers<<endl;
     }
+    finChromosome = InputData[0].finChromosome;
+    FindCommonGenotypedVariants();
 
-    cout<<" -- Found " << NoVariants <<" sites in total with "<< NoCommonTypedVariants <<" commonly genotyped! "<<endl;
+    cout<<" -- Found " << NoCommonTypedVariants <<" commonly genotyped! "<<endl;
     cout<<" -- Successful (" << (time(0)-time_start) << " seconds) !!!" << endl;
     return true;
 
 }
+
+//bool MetaMinimac::LoadVariantInfo()
+//{
+//    cout<<"\n Scanning input VCFs for SNPs ... "<<endl;
+//    int time_start = time(0);
+//    VariantList.clear();
+//    NoOffsetThisBlock.clear();
+//    NoVariantsProcessed = 0;
+//
+//    // Scan through vcf files, looking for commonly typed variants.
+//    // Load common typed variants info -> CommonTypedVariantList.
+//    // Load common typed variants name -> CommonGenotypeVariantNameList.
+//    // Load all variants info -> VariantList.
+//    do
+//    {
+//        FindCurrentMinimumPosition();
+//        if(CurrentFirstVariantBp==MAXBP)
+//            break;
+//        ReadCurrentVariantInfo();
+//        UpdateCurrentRecords();
+//    }while(true);
+//
+//    NoVariants = VariantList.size();
+//    NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
+//    assert(NoVariantsProcessed==NoVariants);
+//
+//    for(int i=0; i<NoInPrefix; i++)
+//    {
+//        cout<<" -- Study "<<i+1<<" #Sites = "<<InputData[i].noMarkers<<" ( #Genotyped = "<<InputData[i].noTypedMarkers <<" )"<<endl;
+//    }
+//
+//    cout<<" -- Found " << NoVariants <<" sites in total with "<< NoCommonTypedVariants <<" commonly genotyped! "<<endl;
+//    cout<<" -- Successful (" << (time(0)-time_start) << " seconds) !!!" << endl;
+//    return true;
+//
+//}
+
+void MetaMinimac::FindCommonGenotypedVariants()
+{
+    std::map<string, int > HashUnionVariantMap;
+
+    for(int i=1;i<NoInPrefix;i++)
+    {
+        for(int j=0;j<InputData[i].noTypedMarkers;j++)
+        {
+            variant *thisVariant=&InputData[i].TypedVariantList[j];
+            HashUnionVariantMap[thisVariant->name]++;
+        }
+    }
+
+    for(int j=0; j<InputData[0].noTypedMarkers; j++)
+    {
+        variant *thisVariant = &InputData[0].TypedVariantList[j];
+        if(HashUnionVariantMap[thisVariant->name]==NoInPrefix-1)
+        {
+            CommonGenotypeVariantNameList.push_back(thisVariant->name);
+            variant tempVariant;
+            tempVariant.chr=thisVariant->chr;
+            tempVariant.bp=thisVariant->bp;
+            tempVariant.name=thisVariant->name;
+            tempVariant.altAlleleString = thisVariant->altAlleleString;
+            tempVariant.refAlleleString = thisVariant->refAlleleString;
+            CommonTypedVariantList.push_back(tempVariant);
+        }
+    }
+
+    NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
+
+    for(int i=0;i<NoInPrefix;i++)
+    {
+        InputData[i].ClearEmpVariantList();
+    }
+}
+
 
 void MetaMinimac::FindCurrentMinimumPosition() {
 

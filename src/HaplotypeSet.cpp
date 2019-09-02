@@ -175,6 +175,40 @@ bool HaplotypeSet::CheckSampleConsistency(int tempNoSamples,
     return true;
 }
 
+void HaplotypeSet::LoadEmpVariantList()
+{
+    VcfFileReader inFile;
+    VcfHeader header;
+    VcfRecord record;
+    inFile.open(EmpDoseFileName.c_str(), header);
+    inFile.setSiteOnly(true);
+    TypedVariantList.clear();
+
+    int numReadRecords=0;
+
+    while (inFile.readRecord(record))
+    {
+        ++numReadRecords;
+        if(numReadRecords==1)
+            finChromosome = record.getChromStr();
+
+        variant tempVariant;
+        tempVariant.chr=record.getChromStr();
+        tempVariant.bp=record.get1BasedPosition();
+        tempVariant.name=record.getIDStr();
+        tempVariant.altAlleleString = record.getAltStr();
+        tempVariant.refAlleleString = record.getRefStr();
+        TypedVariantList.push_back(tempVariant);
+    }
+
+    noTypedMarkers=TypedVariantList.size();
+    inFile.close();
+}
+
+void HaplotypeSet::ClearEmpVariantList()
+{
+    TypedVariantList.clear();
+}
 
 void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId)
 

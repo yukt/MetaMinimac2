@@ -76,7 +76,8 @@ public:
     string GetDosageFileFullName(String prefix);
     bool doesExistFile(String filename);
 
-    bool LoadVariantInfo();
+    bool LoadEmpVariantInfo();
+    void FindCommonGenotypedVariants();
     void FindCurrentMinimumPosition();
     int IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2);
     void ReadCurrentVariantInfo();
