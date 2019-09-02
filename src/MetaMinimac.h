@@ -36,6 +36,7 @@ public:
     double Recom, backgroundError;
     double JumpFix, JumpThreshold;
     vector<int> NoOffsetThisBlock;
+    vector<vector<vector<double>>> Weights;
     vector<vector<vector<double>>> LeftProb;
     vector<vector<double>> PrevLeftProb, PrevRightProb;
     int NoVariantsProcessed, NoCommonVariantsProcessed;
@@ -58,7 +59,7 @@ public:
 
     MetaMinimac()
     {
-        Recom = 1e-5;
+        Recom = 1e-3;
         backgroundError = 1e-5;
         JumpThreshold = 1e-10;
         JumpFix = 1e10;
@@ -86,6 +87,15 @@ public:
     void LoadLooDosage();
 
     String PerformFinalAnalysis();
+    void CalculateWeights();
+    void InitiateWeights();
+    void CalculateLeftProbs();
+    void CalculatePosterior();
+    void InitiateLeftProb(int SampleInBatch);
+    void InitiateRightProb(int SampleInBatch);
+    void UpdateOneStepLeft(int SampleInBatch);
+    void UpdateOneStepRight(int SampleInBatch);
+
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);
     void OpenTempOutputFiles();

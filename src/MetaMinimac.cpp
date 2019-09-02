@@ -501,6 +501,9 @@ String MetaMinimac::PerformFinalAnalysis()
         // Read Data From empiricalDose
         LoadLooDosage();
 
+        // Calculate weights
+        CalculateWeights();
+
         // Calculate left probs
         printf(" -- Calculating Weights ...\n");
         InitiateProbs();
@@ -548,18 +551,213 @@ String MetaMinimac::PerformFinalAnalysis()
 }
 
 
-//void MetaMinimac::GetMetaEstimate(int Sample, int SampleInBatch)
-//{
-//    MarkovModel MM;
-//    MM.initialize(Sample, this);
-//    MM.walkLeft(Sample, this);
-//    MM.walkRight(Sample, this, SampleInBatch);
-//}
-//
-//void MetaMinimac::GetMetaEstimate(int SampleInBatch)
-//{
-//    InitLeftProb(SampleInBatch);
-//}
+void MetaMinimac::CalculateWeights()
+{
+    InitiateWeights();
+    CalculateLeftProbs();
+    CalculatePosterior();
+}
+
+void MetaMinimac::InitiateWeights()
+{
+    int NoSamplesThisBatch = EndSamId-StartSamId;
+    Weights.clear();
+    Weights.resize(NoCommonTypedVariants);
+    for(int i=0; i<NoCommonTypedVariants; i++)
+    {
+        vector<vector<double> > &ThisWeights = Weights[i];
+        ThisWeights.resize(2*NoSamplesThisBatch);
+        for(int j=0; j<2*NoSamplesThisBatch; j++)
+            ThisWeights[j].resize(NoInPrefix);
+    }
+}
+
+void MetaMinimac::CalculateLeftProbs()
+{
+    int NoSamplesThisBatch = EndSamId-StartSamId;
+    for (int id=0; id<NoSamplesThisBatch; id++)
+    {
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            InitiateLeftProb(2*id);
+            InitiateLeftProb(2*id+1);
+        }
+        else
+            InitiateLeftProb(2*id);
+    }
+
+    NoCommonVariantsProcessed = 1;
+    while(NoCommonVariantsProcessed < NoCommonTypedVariants)
+    {
+        NoCommonVariantsProcessed++;
+        for (int id=0; id<NoSamplesThisBatch; id++)
+        {
+            int SampleId = StartSamId + id;
+            if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+            {
+                UpdateOneStepLeft(2*id);
+                UpdateOneStepLeft(2*id+1);
+            }
+            else
+                UpdateOneStepLeft(2*id);
+        }
+    }
+
+}
+
+void MetaMinimac::InitiateLeftProb(int HapInBatch)
+{
+    LogOddsModel ThisSampleAnalysis;
+    ThisSampleAnalysis.reinitialize(HapInBatch, this);
+    vector<double> init(NoInPrefix-1, 0.0);
+    vector<double> MiniMizer = Simplex(ThisSampleAnalysis, init);
+
+    vector<double> InitProb;
+    InitProb.resize(NoInPrefix);
+    logitTransform(MiniMizer, InitProb);
+
+    float ThisGT = InputData[0].TypedGT[HapInBatch][NoCommonTypedVariants-1];
+    vector<double> &ThisWeights = Weights[NoCommonTypedVariants-1][HapInBatch];
+
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        InitProb[i]+=backgroundError;
+        float ThisLooDosage = InputData[i].LooDosage[HapInBatch][NoCommonTypedVariants-1];
+        InitProb[i] *= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+        ThisWeights[i] = InitProb[i];
+    }
+}
+
+void MetaMinimac::UpdateOneStepLeft(int HapInBatch)
+{
+    double r = Recom*1.0/NoInPrefix, complement = 1-Recom;
+    float ThisGT = InputData[0].TypedGT[HapInBatch][NoCommonTypedVariants-NoCommonVariantsProcessed];
+    vector<double> &ThisLeftProb = Weights[NoCommonTypedVariants-NoCommonVariantsProcessed][HapInBatch];
+    vector<double> &ThisPrevLeftProb = Weights[NoCommonTypedVariants-NoCommonVariantsProcessed+1][HapInBatch];
+
+    double sum = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        for(int j=0; j<NoInPrefix; j++)
+            ThisLeftProb[i] += ThisPrevLeftProb[j]*r;
+        ThisLeftProb[i] += ThisPrevLeftProb[i]*complement;
+
+        float ThisLooDosage = InputData[i].LooDosage[HapInBatch][NoCommonTypedVariants-NoCommonVariantsProcessed];
+        ThisLeftProb[i] *= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+        sum += ThisLeftProb[i];
+    }
+
+
+    while(sum < JumpThreshold)
+    {
+        sum = 0.0;
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            ThisLeftProb[i] *= JumpFix;
+            sum += ThisLeftProb[i];
+        }
+    }
+
+}
+
+void MetaMinimac::CalculatePosterior()
+{
+    int NoSamplesThisBatch = EndSamId-StartSamId;
+    PrevRightProb.clear();
+    PrevRightProb.resize(2*NoSamplesThisBatch);
+    for (int id=0; id<NoSamplesThisBatch; id++)
+    {
+        int SampleId = StartSamId + id;
+        if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+        {
+            InitiateRightProb(2*id);
+            InitiateRightProb(2*id+1);
+        }
+        else
+            InitiateRightProb(2*id);
+    }
+
+    NoCommonVariantsProcessed = 1;
+    while(NoCommonVariantsProcessed < NoCommonTypedVariants)
+    {
+        for (int id=0; id<NoSamplesThisBatch; id++)
+        {
+            int SampleId = StartSamId + id;
+            if (InputData[0].SampleNoHaplotypes[SampleId] == 2)
+            {
+                UpdateOneStepRight(2*id);
+                UpdateOneStepRight(2*id+1);
+            }
+            else
+                UpdateOneStepRight(2*id);
+        }
+        NoCommonVariantsProcessed++;
+    }
+
+}
+
+void MetaMinimac::InitiateRightProb(int HapInBatch)
+{
+    PrevRightProb[HapInBatch].resize(NoInPrefix, 1.0);
+    vector<double> &ThisWeight = Weights[0][HapInBatch];
+    double sum = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+        sum += ThisWeight[i];
+    for(int i=0; i<NoInPrefix; i++)
+        ThisWeight[i] /= sum;
+}
+
+
+void MetaMinimac::UpdateOneStepRight(int HapInBatch)
+{
+
+    double r = Recom*1.0/NoInPrefix, complement = 1-Recom;
+    float ThisGT = InputData[0].TypedGT[HapInBatch][NoCommonVariantsProcessed-1];
+    vector<double> &ThisWeight = Weights[NoCommonVariantsProcessed][HapInBatch];
+    vector<double> &ThisPrevRightProb = PrevRightProb[HapInBatch];
+    vector<double> ThisRightProb;
+    ThisRightProb.resize(NoInPrefix, 0.0);
+
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        float ThisLooDosage = InputData[i].LooDosage[HapInBatch][NoCommonVariantsProcessed-1];
+        ThisPrevRightProb[i] *= (ThisGT==1)?(ThisLooDosage+backgroundError):(1-ThisLooDosage+backgroundError);
+    }
+
+    double sum = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        for(int j=0; j<NoInPrefix; j++)
+            ThisRightProb[i] += ThisPrevRightProb[j]*r;
+        ThisRightProb[i] += ThisPrevRightProb[i]*complement;
+        sum += ThisRightProb[i];
+    }
+
+    while(sum < JumpThreshold)
+    {
+        sum = 0.0;
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            ThisRightProb[i] *= JumpFix;
+            sum += ThisRightProb[i];
+        }
+    }
+
+    sum = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        ThisWeight[i] *= ThisRightProb[i];
+        sum += ThisWeight[i];
+        ThisPrevRightProb[i] = ThisRightProb[i];
+    }
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        ThisWeight[i] /= sum;
+    }
+
+}
+
 
 void MetaMinimac::InitiateProbs()
 {
