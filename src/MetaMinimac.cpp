@@ -763,33 +763,56 @@ void MetaMinimac::OutputPartialVcf()
 {
     NoVariantsProcessed = 0;
     NoCommonVariantsProcessed = 0;
-    for(int i=0; i<NoVariants; i++)
+
+    PrevBp = 0, CurrBp = CommonTypedVariantList[0].bp;
+    NextTypedName = CommonGenotypeVariantNameList[0];
+    PrevWeights = &Weights[0], CurrWeights = &Weights[0];
+
+    if(batchNo==1)
     {
-        CurrentVariant = &VariantList[i];
-        WalkOneStepRight();
-        ReadCurrentDosageData();
-
-        if(CurrentVariant->typed)
+        do
         {
-            UpdateLeftProb();
+            FindCurrentMinimumPosition();
+            if(CurrentFirstVariantBp==MAXBP)
+                break;
+            ReadCurrentDosageData();
             CreateMetaImputedData();
-            CalculateStats();
+            PrintVariantPartialInfo();
             PrintMetaImputedData();
-            if(myUserVariables.debug)
-                PrintMetaWeight();
-            UpdateRightProb();
-            NoCommonVariantsProcessed++;
-        }
-        else
-        {
-            CreateMetaImputedData();
-            CalculateStats();
-            PrintMetaImputedData();
-        }
+            PrintMetaImputedRsq();
+            UpdateCurrentRecords();
+            NoVariantsProcessed++;
+        }while(true);
+        NoVariants = NoVariantsProcessed;
 
-        UpdateCurrentRecords();
-        NoVariantsProcessed++;
+        if(SnpPrintStringPointerLength > 0)
+        {
+            ifprintf(vcfsnppartial,"%s",SnpPrintStringPointer);
+            SnpPrintStringPointerLength=0;
+        }
+        ifclose(vcfsnppartial);
     }
+    else
+    {
+        while(NoVariantsProcessed<NoVariants)
+        {
+            FindCurrentMinimumPosition();
+            ReadCurrentDosageData();
+            CreateMetaImputedData();
+            PrintMetaImputedData();
+            PrintMetaImputedRsq();
+            UpdateCurrentRecords();
+            NoVariantsProcessed++;
+        }
+    }
+
+    if (myUserVariables.infoDetails && RsqPrintStringPointerLength > 0)
+    {
+        ifprintf(vcfrsqpartial,"%s",RsqPrintStringPointer);
+        RsqPrintStringPointerLength = 0;
+    }
+    ifclose(vcfrsqpartial);
+
     if (VcfPrintStringPointerLength > 0)
     {
         ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
@@ -1016,18 +1039,31 @@ void MetaMinimac::ProcessTypedLeftProb(int HapInBatch)
 
 void MetaMinimac::OpenTempOutputFiles()
 {
-    VcfPrintStringPointerLength=0;
     stringstream ss;
     ss << (batchNo);
     string PartialVcfFileName(myUserVariables.outfile);
     PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf" + (myUserVariables.gzip ? ".gz" : "");
     vcfdosepartial = ifopen(PartialVcfFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+    VcfPrintStringPointerLength=0;
+
+    if(myUserVariables.infoDetails)
+    {
+        string PartialRsqFileName(myUserVariables.outfile);
+        PartialRsqFileName += ".metaR2.part."+(string)(ss.str()) + (myUserVariables.gzip ? ".gz" : "");
+        vcfrsqpartial = ifopen(PartialRsqFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+        RsqPrintStringPointerLength=0;
+        RsqPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
+    }
+
     if(batchNo==1)
     {
         string PartialVcfFileHeaderName(myUserVariables.outfile);
-        ss << 0;
-        PartialVcfFileHeaderName += ".metaDose.part."+(string)(ss.str())+".vcf" + (myUserVariables.gzip ? ".gz" : "");
-        vcfdosepartialheader = ifopen(PartialVcfFileHeaderName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+        stringstream sss;
+        sss << 0;
+        PartialVcfFileHeaderName += ".metaDose.part."+(string)(sss.str())+".vcf" + (myUserVariables.gzip ? ".gz" : "");
+        vcfsnppartial = ifopen(PartialVcfFileHeaderName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+        SnpPrintStringPointerLength = 0;
+        SnpPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
     }
 
 
@@ -1374,6 +1410,19 @@ void MetaMinimac::PrintMetaImputedData()
 
 }
 
+void MetaMinimac::PrintMetaImputedRsq()
+{
+    if(myUserVariables.infoDetails)
+    {
+        RsqPrintStringPointerLength+=sprintf(RsqPrintStringPointer+RsqPrintStringPointerLength,"%.8f\t%.8f\n", CurrentHapDosageSum, CurrentHapDosageSumSq);
+        if(RsqPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
+        {
+            ifprintf(vcfrsqpartial,"%s",RsqPrintStringPointer);
+            RsqPrintStringPointerLength=0;
+        }
+    }
+}
+
 void MetaMinimac::PrintMetaWeight()
 {
     for(int id=0; id<EndSamId-StartSamId; id++)
@@ -1598,30 +1647,42 @@ void MetaMinimac::AppendtoMainVcf()
     int start_time = time(0);
     VcfPrintStringPointerLength=0;
     vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf" + (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    vector<IFILE> vcfdosepartialList(batchNo);
+    vector<IFILE> vcfdosepartialList(batchNo+1);
 
-    for(int i=1;i<=batchNo;i++)
+    for(int i=0;i<=batchNo;i++)
     {
         stringstream ss;
         ss << (i);
         string PartialVcfFileName(myUserVariables.outfile);
         PartialVcfFileName += ".metaDose.part."+(string)(ss.str())+".vcf"+ (myUserVariables.gzip ? ".gz" : "");
-        vcfdosepartialList[i-1] = ifopen(PartialVcfFileName.c_str(), "r");
+        vcfdosepartialList[i] = ifopen(PartialVcfFileName.c_str(), "r");
+    }
+
+    if(myUserVariables.infoDetails)
+    {
+        vcfrsqpartialList.resize(batchNo);
+        for(int i=1;i<=batchNo;i++)
+        {
+            stringstream ss;
+            ss << (i);
+            string PartialRsqFileName(myUserVariables.outfile);
+            PartialRsqFileName += ".metaR2.part."+(string)(ss.str())+ (myUserVariables.gzip ? ".gz" : "");
+            vcfrsqpartialList[i-1] = ifopen(PartialRsqFileName.c_str(), "r");
+        }
     }
 
     string line;
 
     for(int i=0; i<NoVariants; i++)
     {
-        CurrentVariant = &VariantList[i];
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength, "%s\t%d\t%s\t%s\t%s\t.\tPASS\t%s\t%s",
-                                             CurrentVariant->chr.c_str(), CurrentVariant->bp, CurrentVariant->name.c_str(),
-                                             CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str(),
-                                             CreateInfo(i).c_str(), myUserVariables.formatStringForVCF.c_str());
+        line.clear();
+        vcfdosepartialList[0]->readLine(line);
+        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength, "%s%s\t%s",line.c_str(), CreateRsqInfo().c_str(), myUserVariables.formatStringForVCF.c_str());
+
         for(int j=1;j<=batchNo;j++)
         {
             line.clear();
-            vcfdosepartialList[j-1]->readLine(line);
+            vcfdosepartialList[j]->readLine(line);
             VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer + VcfPrintStringPointerLength,"%s",line.c_str());
 
         }
@@ -1638,14 +1699,27 @@ void MetaMinimac::AppendtoMainVcf()
         VcfPrintStringPointerLength=0;
     }
 
-    for(int i=1;i<=batchNo;i++)
+    for(int i=0;i<=batchNo;i++)
     {
-        ifclose(vcfdosepartialList[i-1]);
+        ifclose(vcfdosepartialList[i]);
         stringstream ss;
         ss << (i);
         string tempFileIndex(myUserVariables.outfile);
         tempFileIndex += ".metaDose.part."+(string)(ss.str())+".vcf"+ (myUserVariables.gzip ? ".gz" : "");
         remove(tempFileIndex.c_str());
+    }
+    if(myUserVariables.infoDetails)
+    {
+        vcfrsqpartialList.resize(batchNo);
+        for(int i=1;i<=batchNo;i++)
+        {
+            ifclose(vcfrsqpartialList[i-1]);
+            stringstream ss;
+            ss << (i);
+            string PartialRsqFileName(myUserVariables.outfile);
+            PartialRsqFileName += ".metaR2.part."+(string)(ss.str())+ (myUserVariables.gzip ? ".gz" : "");
+            remove(PartialRsqFileName.c_str());
+        }
     }
     ifclose(vcfdosepartial);
 
@@ -1661,8 +1735,24 @@ void MetaMinimac::PrintVariantInfo()
                                          CreateInfo().c_str(), myUserVariables.formatStringForVCF.c_str());
 }
 
+void MetaMinimac::PrintVariantPartialInfo()
+{
+    SnpPrintStringPointerLength+=sprintf(SnpPrintStringPointer+SnpPrintStringPointerLength, "%s\t%d\t%s\t%s\t%s\t.\tPASS\t%s\n",
+                                         ThisVariant.chr.c_str(), ThisVariant.bp, ThisVariant.name.c_str(),
+                                         ThisVariant.refAlleleString.c_str(), ThisVariant.altAlleleString.c_str(),
+                                         CreatePartialInfo().c_str());
+    if(SnpPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
+    {
+        ifprintf(vcfsnppartial,"%s",SnpPrintStringPointer);
+        SnpPrintStringPointerLength=0;
+    }
+}
+
 string MetaMinimac::CreateInfo()
 {
+    if(!myUserVariables.infoDetails)
+        return ".";
+
     double hapSum = CurrentHapDosageSum, hapSumSq = CurrentHapDosageSumSq;
     double freq = hapSum*1.0/NoHaplotypes;
     double maf = (freq > 0.5) ? (1.0 - freq) : freq;
@@ -1674,13 +1764,7 @@ string MetaMinimac::CreateInfo()
     }
 
     stringstream ss;
-    ss<< "AF=" << fixed << setprecision(5) << freq <<";MAF=";
-    ss<< fixed << setprecision(5) << maf <<";R2=";
-    ss<< fixed << setprecision(5) << rsq ;
-    ss<<";";
 
-    if(!myUserVariables.infoDetails)
-        return ".";
     ss<<"NST=";
     ss<<NoStudiesHasVariant;
     for(int i=0; i<NoStudiesHasVariant; i++)
@@ -1694,6 +1778,67 @@ string MetaMinimac::CreateInfo()
         ss<<";TRAINING";
     }
 
+    ss<< ";AF=" << fixed << setprecision(5) << freq <<";MAF=";
+    ss<< fixed << setprecision(5) << maf <<";R2=";
+    ss<< fixed << setprecision(5) << rsq ;
+
+    return ss.str();
+}
+
+string MetaMinimac::CreatePartialInfo()
+{
+    if(!myUserVariables.infoDetails)
+        return ".";
+
+    stringstream ss;
+
+    ss<<"NST=";
+    ss<<NoStudiesHasVariant;
+    for(int i=0; i<NoStudiesHasVariant; i++)
+    {
+        ss<<";S";
+        ss<<StudiesHasVariant[i]+1;
+    }
+
+    if(ThisVariant.name == CommonGenotypeVariantNameList[NoCommonVariantsProcessed-1])
+    {
+        ss<<";TRAINING";
+    }
+
+    return ss.str();
+}
+
+string MetaMinimac::CreateRsqInfo()
+{
+    if(!myUserVariables.infoDetails)
+        return "";
+
+    double hapSum = 0.0, hapSumSq = 0.0;
+    string line;
+    char* sum, * sumsq;
+    for(int i=0;i<batchNo;i++)
+    {
+        line.clear();
+        vcfrsqpartialList[i]->readLine(line);
+        sum = strtok((char*)line.c_str(), "\t");
+        sumsq = strtok(NULL, "\t");
+
+        hapSum += stod(sum);
+        hapSumSq += stod(sumsq);
+    }
+
+    double freq = hapSum*1.0/NoHaplotypes;
+    double maf = (freq > 0.5) ? (1.0 - freq) : freq;
+    double rsq = 0.0, evar = freq*(1-freq), ovar = 0.0;
+    if (NoHaplotypes > 2 & (hapSumSq - hapSum * hapSum / NoHaplotypes) >0 )
+    {
+        ovar = (hapSumSq - hapSum * hapSum / NoHaplotypes)/ NoHaplotypes;
+        rsq = ovar / (evar + 1e-30);
+    }
+    stringstream ss;
+    ss<< ";AF=" << fixed << setprecision(5) << freq <<";MAF=";
+    ss<< fixed << setprecision(5) << maf <<";R2=";
+    ss<< fixed << setprecision(5) << rsq ;
     return ss.str();
 }
 

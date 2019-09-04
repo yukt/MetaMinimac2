@@ -43,13 +43,22 @@ public:
 
     // Output files
     IFILE vcfdosepartial, vcfweightpartial;
+    IFILE vcfsnppartial, vcfrsqpartial;
     IFILE metaWeight;
     char *VcfPrintStringPointer;
     char *WeightPrintStringPointer;
-    int VcfPrintStringPointerLength, WeightPrintStringPointerLength;
+    char *RsqPrintStringPointer;
+    char *SnpPrintStringPointer;
+    int VcfPrintStringPointerLength, WeightPrintStringPointerLength, RsqPrintStringPointerLength, SnpPrintStringPointerLength;
     int batchNo;
+    vector<IFILE> vcfrsqpartialList;
 
     variant* CurrentVariant;
+    variant ThisVariant;
+    string NextTypedName;
+    int PrevBp, CurrBp, ThisBp;
+    vector<vector<double>> *PrevWeights;
+    vector<vector<double>> *CurrWeights;
     vector<float> CurrentMetaImputedDosage;
     vector<vector<float>> CurrentPosterior;
 
@@ -95,6 +104,10 @@ public:
     void InitiateRightProb(int SampleInBatch);
     void UpdateOneStepLeft(int SampleInBatch);
     void UpdateOneStepRight(int SampleInBatch);
+    void MetaImputeAndOutput();
+    void UpdateWeights();
+    void OutputPartialVcf();
+    void OutputAllVcf();
 
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);
@@ -125,10 +138,14 @@ public:
     void PrintMetaImputedData();
     void PrintMetaWeight();
     void PrintVariantInfo();
+    void PrintVariantPartialInfo();
     void PrintWeightVariantInfo();
+    void PrintMetaImputedRsq();
 
     string CreateInfo();
     string CreateInfo(int i);
+    string CreatePartialInfo();
+    string CreateRsqInfo();
     void PrintDiploidDosage(float &x, float &y);
     void PrintHaploidDosage(float &x);
     void PrintWeightForHaplotype(int haploId);
