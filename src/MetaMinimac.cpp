@@ -532,6 +532,7 @@ String MetaMinimac::PerformFinalAnalysis()
 
 void MetaMinimac::CalculateWeights()
 {
+    cout << " Calculating Weights ... " << endl;
     InitiateWeights();
     CalculateLeftProbs();
     CalculatePosterior();
@@ -1322,7 +1323,7 @@ void MetaMinimac::CreateMetaImputedData()
 
     if(NoStudiesHasVariant==1)
     {
-        CurrentMetaImputedDosage = InputData[CurrentVariant->StudiesHasVariant[0]].CurrentHapDosage;
+        CurrentMetaImputedDosage = InputData[StudiesHasVariant[0]].CurrentHapDosage;
         for(int i=0; i<2*(EndSamId-StartSamId); i++)
         {
             CurrentHapDosageSum += CurrentMetaImputedDosage[i];
