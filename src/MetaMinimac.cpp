@@ -532,7 +532,7 @@ String MetaMinimac::PerformFinalAnalysis()
 
 void MetaMinimac::CalculateWeights()
 {
-    cout << " Calculating Weights ... " << endl;
+    cout << " -- Calculating Weights ... " << endl;
     InitiateWeights();
     CalculateLeftProbs();
     CalculatePosterior();
