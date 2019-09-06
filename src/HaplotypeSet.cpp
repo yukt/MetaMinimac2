@@ -195,9 +195,9 @@ void HaplotypeSet::LoadEmpVariantList()
         variant tempVariant;
         tempVariant.chr=record.getChromStr();
         tempVariant.bp=record.get1BasedPosition();
-        tempVariant.name=record.getIDStr();
         tempVariant.altAlleleString = record.getAltStr();
         tempVariant.refAlleleString = record.getRefStr();
+        tempVariant.name=tempVariant.chr+":"+to_string(tempVariant.bp)+":"+ tempVariant.refAlleleString+":"+tempVariant.altAlleleString;
         TypedVariantList.push_back(tempVariant);
     }
 
