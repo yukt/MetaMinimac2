@@ -237,8 +237,14 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     while (inFile.readRecord(record))
     {
         ++numReadRecords;
+        variant tempVariant;
+        tempVariant.chr=record.getChromStr();
+        tempVariant.bp=record.get1BasedPosition();
+        tempVariant.altAlleleString = record.getAltStr();
+        tempVariant.refAlleleString = record.getRefStr();
+        string tempVariantName = tempVariant.chr+":"+to_string(tempVariant.bp)+":"+ tempVariant.refAlleleString+":"+tempVariant.altAlleleString;
 
-        if(SortedCommonGenoList[SortIndex]==record.getIDStr())
+        if(SortedCommonGenoList[SortIndex]==tempVariantName)
         {
             recordGeno=&record.getGenotypeInfo();
             LoadLooVariant(*recordGeno, numComRecord, StartSamId, EndSamId);

@@ -40,7 +40,7 @@ public:
         debug=false;
         gzip = true;
         nobgzip = false;
-        VcfBuffer = 200;
+        VcfBuffer = 1000;
         log = false;
     };
 
