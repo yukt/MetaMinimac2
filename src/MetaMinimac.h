@@ -108,6 +108,7 @@ public:
     void UpdateWeights();
     void OutputPartialVcf();
     void OutputAllVcf();
+    void OutputMetaWeights();
 
 //    void GetMetaEstimate(int Sample, int SampleInBatch);
 //    void GetMetaEstimate(int SampleInBatch);

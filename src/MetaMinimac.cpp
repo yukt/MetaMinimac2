@@ -162,7 +162,7 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
     time_t t = time(0);
     struct tm * now = localtime( & t );
     ifprintf(vcfdosepartial,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
-    ifprintf(vcfdosepartial,"##source=MetaMinimac.v%s\n",VERSION);
+    ifprintf(vcfdosepartial,"##source=MetaMinimac2.v%s\n",VERSION);
     ifprintf(vcfdosepartial,"##contig=<ID=%s>\n", finChromosome.c_str());
     ifprintf(vcfdosepartial,"##INFO=<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
     ifprintf(vcfdosepartial,"##INFO=<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">\n");
@@ -211,13 +211,13 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
         time_t t = time(0);
         struct tm * now = localtime( & t );
         ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
-        ifprintf(metaWeight,"##source=MetaMinimac.v%s\n",VERSION);
+        ifprintf(metaWeight,"##source=MetaMinimac2.v%s\n",VERSION);
         ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
         ifprintf(metaWeight,"##INFO=<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
         ifprintf(metaWeight,"##INFO=<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">\n");
         ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
 
-        ifprintf(metaWeight,"#SNP");
+        ifprintf(metaWeight,"#CHROM\tPOS\tID\tREF\tALT");
 
         for(int Id=0;Id<InputData[0].numSamples;Id++)
         {
@@ -723,17 +723,17 @@ void MetaMinimac::UpdateOneStepRight(int HapInBatch)
         }
     }
 
-    sum = 0.0;
+//    sum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
     {
         ThisWeight[i] *= ThisRightProb[i];
-        sum += ThisWeight[i];
+//        sum += ThisWeight[i];
         ThisPrevRightProb[i] = ThisRightProb[i];
     }
-    for(int i=0; i<NoInPrefix; i++)
-    {
-        ThisWeight[i] /= sum;
-    }
+//    for(int i=0; i<NoInPrefix; i++)
+//    {
+//        ThisWeight[i] /= sum;
+//    }
 
 }
 
@@ -745,8 +745,6 @@ void MetaMinimac::MetaImputeAndOutput()
 
     if(myUserVariables.VcfBuffer<NoSamples)
     {
-        HapDosageSum.resize(NoVariants, 0.0);
-        HapDosageSumSq.resize(NoVariants, 0.0);
         OpenTempOutputFiles();
         OutputPartialVcf();
     }
@@ -858,6 +856,13 @@ void MetaMinimac::OutputAllVcf()
 
     ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
     ifclose(vcfdosepartial);
+
+    if(myUserVariables.debug)
+    {
+        if(WeightPrintStringPointerLength > 0)
+            ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+        ifclose(vcfweightpartial);
+    }
 }
 
 void MetaMinimac::InitiateProbs()
@@ -1347,6 +1352,11 @@ void MetaMinimac::CreateMetaImputedData()
 
 void MetaMinimac::UpdateWeights()
 {
+    if(myUserVariables.debug)
+    {
+        if(myUserVariables.VcfBuffer>=NoSamples) PrintWeightVariantInfo();
+        PrintMetaWeight();
+    }
     NoCommonVariantsProcessed++;
     PrevWeights = CurrWeights;
     PrevBp      = CurrBp;
@@ -1628,13 +1638,13 @@ void MetaMinimac::PrintHaploidDosage(float &x)
 
 void MetaMinimac::PrintWeightForHaplotype(int haploId)
 {
-    vector<float> &ThisPosterior = CurrentPosterior[haploId];
-    float WeightSum = 0.0;
+    vector<double>& ThisCurrWeights = (*CurrWeights)[haploId];
+    double WeightSum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
-        WeightSum += ThisPosterior[i];
-    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisPosterior[0]/WeightSum);
+        WeightSum += ThisCurrWeights[i];
+    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisCurrWeights[0]/WeightSum);
     for(int i=1;i<NoInPrefix;i++)
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisPosterior[i]/WeightSum);
+        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisCurrWeights[i]/WeightSum);
 }
 
 
@@ -1881,9 +1891,9 @@ string MetaMinimac::CreateInfo(int id)
 
 void MetaMinimac::PrintWeightVariantInfo()
 {
-    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s:%d:%s:%s",
-                                            CurrentVariant->chr.c_str(), CurrentVariant->bp,
-                                            CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str());
+    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s",
+                                            ThisVariant.chr.c_str(), ThisVariant.bp, ThisVariant.name.c_str(),
+                                            ThisVariant.refAlleleString.c_str(), ThisVariant.altAlleleString.c_str());
 }
 
 void MetaMinimac::AppendtoMainWeightsFile()
@@ -1907,7 +1917,7 @@ void MetaMinimac::AppendtoMainWeightsFile()
 
     for(int i=0; i<NoCommonTypedVariants; i++)
     {
-        CurrentVariant = &CommonTypedVariantList[i];
+        ThisVariant = CommonTypedVariantList[i];
         PrintWeightVariantInfo();
         for(int j=1;j<=batchNo;j++)
         {
