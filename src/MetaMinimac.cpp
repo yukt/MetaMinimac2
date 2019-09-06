@@ -1301,9 +1301,9 @@ void MetaMinimac::ReadCurrentDosageData()
     VcfRecord* tempRecord = CurrentRecordFromStudy[StudiesHasVariant[0]];
     ThisVariant.chr  = tempRecord->getChromStr();
     ThisVariant.bp   = tempRecord->get1BasedPosition();
-    ThisVariant.name = tempRecord->getIDStr();
     ThisVariant.refAlleleString = tempRecord->getRefStr();
     ThisVariant.altAlleleString = tempRecord->getAltStr();
+    ThisVariant.name = ThisVariant.chr+":"+to_string(ThisVariant.bp)+":"+ ThisVariant.refAlleleString+":"+ThisVariant.altAlleleString;
     ThisBp = ThisVariant.bp;
 
     for(int j=0; j<NoStudiesHasVariant; j++)

@@ -221,7 +221,7 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     inFile.setSiteOnly(false);
     int bp,numReadRecords=0;
     int numHapsInBatch = 2*(EndSamId - StartSamId);
-    string cno,id,refAllele,altAllele,prevID="",currID;
+    string cno,name,refAllele,altAllele,prevID="",currID;
 
     LooDosage.clear();
     TypedGT.clear();
@@ -237,14 +237,13 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     while (inFile.readRecord(record))
     {
         ++numReadRecords;
-        variant tempVariant;
-        tempVariant.chr=record.getChromStr();
-        tempVariant.bp=record.get1BasedPosition();
-        tempVariant.altAlleleString = record.getAltStr();
-        tempVariant.refAlleleString = record.getRefStr();
-        string tempVariantName = tempVariant.chr+":"+to_string(tempVariant.bp)+":"+ tempVariant.refAlleleString+":"+tempVariant.altAlleleString;
+        cno=record.getChromStr();
+        bp=record.get1BasedPosition();
+        altAllele = record.getAltStr();
+        refAllele = record.getRefStr();
+        name = cno+":"+to_string(bp)+":"+refAllele+":"+altAllele;
 
-        if(SortedCommonGenoList[SortIndex]==tempVariantName)
+        if(SortedCommonGenoList[SortIndex]==name)
         {
             recordGeno=&record.getGenotypeInfo();
             LoadLooVariant(*recordGeno, numComRecord, StartSamId, EndSamId);
