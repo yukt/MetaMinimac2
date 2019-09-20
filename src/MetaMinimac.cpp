@@ -1321,6 +1321,8 @@ void MetaMinimac::CreateMetaImputedData()
     CurrentMetaImputedDosage.clear();
     CurrentPosterior.clear();
 
+    if(ThisVariant.name == NextTypedName) UpdateWeights();
+
     if(NoStudiesHasVariant==1)
     {
         CurrentMetaImputedDosage = InputData[StudiesHasVariant[0]].CurrentHapDosage;
@@ -1332,7 +1334,6 @@ void MetaMinimac::CreateMetaImputedData()
     }
     else
     {
-        if(ThisVariant.name == NextTypedName) UpdateWeights();
         CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
         CurrentPosterior.resize(2*(EndSamId-StartSamId));
         for(int id=0; id<EndSamId-StartSamId; id++)
@@ -1370,6 +1371,7 @@ void MetaMinimac::UpdateWeights()
     else
     {
         CurrBp        = MAXBP;
+        NextTypedName = "No:More:Common:Typed";
     }
 }
 
