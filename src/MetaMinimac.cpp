@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include "simplex.h"
+#define RECOM_MIN 1e-04
 
 using BT::Simplex;
 
@@ -325,6 +326,9 @@ void MetaMinimac::FindCommonGenotypedVariants()
         }
     }
 
+    TransitionProb.clear();
+    int lastbp = 0;
+    double sum = 0.0;
     for(int j=0; j<InputData[0].noTypedMarkers; j++)
     {
         variant *thisVariant = &InputData[0].TypedVariantList[j];
@@ -338,10 +342,17 @@ void MetaMinimac::FindCommonGenotypedVariants()
             tempVariant.altAlleleString = thisVariant->altAlleleString;
             tempVariant.refAlleleString = thisVariant->refAlleleString;
             CommonTypedVariantList.push_back(tempVariant);
+            int distance = tempVariant.bp - lastbp;
+            double prob  = max(RECOM_MIN, 1-exp(-lambda*distance));
+            TransitionProb.push_back(prob);
+            lastbp = tempVariant.bp;
+            sum += prob;
         }
     }
 
     NoCommonTypedVariants = CommonGenotypeVariantNameList.size();
+
+    cout << (sum-TransitionProb[0])*1.0/(NoCommonTypedVariants-1) << endl;
 
     for(int i=0;i<NoInPrefix;i++)
     {
@@ -570,6 +581,7 @@ void MetaMinimac::CalculateLeftProbs()
     NoCommonVariantsProcessed = 1;
     while(NoCommonVariantsProcessed < NoCommonTypedVariants)
     {
+        Recom = TransitionProb[NoCommonTypedVariants-NoCommonVariantsProcessed];
         NoCommonVariantsProcessed++;
         for (int id=0; id<NoSamplesThisBatch; id++)
         {
@@ -661,6 +673,7 @@ void MetaMinimac::CalculatePosterior()
     NoCommonVariantsProcessed = 1;
     while(NoCommonVariantsProcessed < NoCommonTypedVariants)
     {
+        Recom = TransitionProb[NoCommonVariantsProcessed];
         for (int id=0; id<NoSamplesThisBatch; id++)
         {
             int SampleId = StartSamId + id;
@@ -680,12 +693,6 @@ void MetaMinimac::CalculatePosterior()
 void MetaMinimac::InitiateRightProb(int HapInBatch)
 {
     PrevRightProb[HapInBatch].resize(NoInPrefix, 1.0);
-    vector<double> &ThisWeight = Weights[0][HapInBatch];
-    double sum = 0.0;
-    for(int i=0; i<NoInPrefix; i++)
-        sum += ThisWeight[i];
-    for(int i=0; i<NoInPrefix; i++)
-        ThisWeight[i] /= sum;
 }
 
 
@@ -724,18 +731,11 @@ void MetaMinimac::UpdateOneStepRight(int HapInBatch)
         }
     }
 
-//    sum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
     {
         ThisWeight[i] *= ThisRightProb[i];
-//        sum += ThisWeight[i];
         ThisPrevRightProb[i] = ThisRightProb[i];
     }
-//    for(int i=0; i<NoInPrefix; i++)
-//    {
-//        ThisWeight[i] /= sum;
-//    }
-
 }
 
 void MetaMinimac::MetaImputeAndOutput()

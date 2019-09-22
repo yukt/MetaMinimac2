@@ -33,6 +33,8 @@ public:
 
     // Process Part of Samples each time
     int StartSamId, EndSamId;
+    double lambda;
+    vector<double> TransitionProb;
     double Recom, backgroundError;
     double JumpFix, JumpThreshold;
     vector<int> NoOffsetThisBlock;
@@ -73,6 +75,7 @@ public:
 
     MetaMinimac()
     {
+        lambda = 2e-7;
         Recom = 1e-3;
         backgroundError = 1e-5;
         JumpThreshold = 1e-10;

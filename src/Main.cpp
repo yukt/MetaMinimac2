@@ -78,7 +78,7 @@ int main(int argc, char ** argv)
     cout<<"                                END OF PROGRAM                                 "<<endl;
     cout<<" ------------------------------------------------------------------------------"<<endl;
 
-    printf("\n -- Meta-Imputation Completed in %d hours, %d mins, %d seconds.\n",
+    printf("\n Meta-Imputation Completed in %d hours, %d mins, %d seconds.\n",
            time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
 
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
