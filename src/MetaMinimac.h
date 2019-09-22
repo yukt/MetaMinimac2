@@ -65,6 +65,11 @@ public:
     float CurrentHapDosageSum, CurrentHapDosageSumSq;
     vector<float> HapDosageSum, HapDosageSumSq;
 
+    // Buffer
+    int NoRecords;
+    int BufferBp, BufferNoVariants;
+    vector<variant> BufferVariantList;
+
 
     MetaMinimac()
     {
@@ -127,7 +132,12 @@ public:
     void AppendtoMainVcf();
     void AppendtoMainWeightsFile();
 
+    void MetaImputeCurrentBuffer();
+    void MetaImputeCurrentBuffer2();
+    void MetaImputeCurrentBuffer3();
+    void ClearCurrentBuffer();
     void ReadCurrentDosageData();
+    void CreateMetaImputedData(int VariantId);
     void CreateMetaImputedData();
     void CalculateStats();
     void WalkOneStepRight();

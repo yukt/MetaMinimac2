@@ -60,6 +60,12 @@ public:
     vector<vector<float> > LooDosage;
     vector<vector<float> > TypedGT;
 
+    // Buffer Data
+    int BufferNoVariants;
+    vector<vector<float> > BufferHapDosage;
+    map<int,int> VariantId2Buffer;
+
+
 
     // FUNCTIONS
     bool        CheckSampleConsistency                  (int tempNoSamples, vector<string> &tempindividualName, vector<int> tempSampleNoHaplotypes, string File1, string File2);
@@ -76,6 +82,10 @@ public:
     void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
     bool        LoadSampleNames                         (string prefix);
     bool        doesExistFile                           (string filename);
+
+    void        LoadData                                (int VariantId, VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
+    void        GetData                                 (int VariantId);
+    void        ClearBuffer                             ();
 };
 
 

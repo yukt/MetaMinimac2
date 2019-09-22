@@ -18,7 +18,7 @@ endif()
 find_package(ZLIB REQUIRED)
 find_library(STATGEN_LIBRARY StatGen)
 add_executable(MetaMinimac2
-         src/Main.cpp
+        src/Main.cpp
         src/MyVariables.h src/MarkovParameters.h src/simplex.h
         src/MetaMinimac.h src/MetaMinimac.cpp
         src/HaplotypeSet.h src/HaplotypeSet.cpp

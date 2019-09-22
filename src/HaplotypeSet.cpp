@@ -348,3 +348,46 @@ bool HaplotypeSet::CheckSuffixFile(string prefix, const char* suffix, string &Fi
     return true;
 }
 
+void HaplotypeSet::LoadData(int VariantId, VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId)
+{
+    VariantId2Buffer[VariantId] = BufferNoVariants;
+
+    vector<float> tempHapDosage;
+    tempHapDosage.resize(2*(EndSamId-StartSamId), 0.0);
+
+    for (int i = StartSamId; i<EndSamId; i++)
+    {
+        string temp=*ThisGenotype.getString("HDS",i);
+        char *end_str;
+
+        if(SampleNoHaplotypes[i]==2) {
+            char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
+            tempHapDosage[2*(i-StartSamId)] = atof(pch);
+
+            pch = strtok_r(NULL, "\t", &end_str);
+            tempHapDosage[2*(i-StartSamId)+1] = atof(pch);
+        }
+        else
+        {
+            tempHapDosage[2*(i-StartSamId)] = atof(temp.c_str());
+        }
+
+    }
+
+    BufferHapDosage.push_back(tempHapDosage);
+    BufferNoVariants++;
+
+}
+
+void HaplotypeSet::GetData(int VariantId)
+{
+    int index=VariantId2Buffer[VariantId];
+    CurrentHapDosage=BufferHapDosage[index];
+}
+
+void HaplotypeSet::ClearBuffer()
+{
+    BufferHapDosage.clear();
+    BufferNoVariants = 0;
+    VariantId2Buffer.clear();
+}
