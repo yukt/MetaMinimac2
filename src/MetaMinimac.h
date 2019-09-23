@@ -16,7 +16,6 @@ public:
     int NoInPrefix;
     string finChromosome;
 
-    vector<variant> VariantList;
     vector<variant> CommonTypedVariantList;
     vector<string> CommonGenotypeVariantNameList;
     int NoHaplotypes, NoSamples;
@@ -37,11 +36,9 @@ public:
     vector<double> TransitionProb;
     double Recom, backgroundError;
     double JumpFix, JumpThreshold;
-    vector<int> NoOffsetThisBlock;
     vector<vector<vector<double>>> Weights;
-    vector<vector<vector<double>>> LeftProb;
-    vector<vector<double>> PrevLeftProb, PrevRightProb;
-    int NoVariantsProcessed, NoCommonVariantsProcessed;
+    vector<vector<double>> PrevRightProb;
+    int NoCommonVariantsProcessed;
 
     // Output files
     IFILE vcfdosepartial, vcfweightpartial;
@@ -58,14 +55,13 @@ public:
     variant* CurrentVariant;
     variant ThisVariant;
     string NextTypedName;
-    int PrevBp, CurrBp, ThisBp;
+    int PrevBp, CurrBp;
     vector<vector<double>> *PrevWeights;
     vector<vector<double>> *CurrWeights;
     vector<float> CurrentMetaImputedDosage;
     vector<vector<float>> CurrentPosterior;
 
     float CurrentHapDosageSum, CurrentHapDosageSumSq;
-    vector<float> HapDosageSum, HapDosageSumSq;
 
     // Buffer
     int NoRecords;
@@ -98,7 +94,6 @@ public:
     void FindCommonGenotypedVariants();
     void FindCurrentMinimumPosition();
     int IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2);
-    void ReadCurrentVariantInfo();
     void UpdateCurrentRecords();
 
     void LoadLooDosage();
@@ -116,22 +111,8 @@ public:
     void UpdateWeights();
     void OutputPartialVcf();
     void OutputAllVcf();
-    void OutputMetaWeights();
 
-//    void GetMetaEstimate(int Sample, int SampleInBatch);
-//    void GetMetaEstimate(int SampleInBatch);
     void OpenTempOutputFiles();
-    void FlushPartialVcf();
-    void FlushAllVcf();
-
-    void InitiateProbs();
-    void InitLeftProb(int SampleInBatch);
-    void WalkLeft();
-    void WalkOneStepLeft();
-    void WalkOneStepLeft(int SampleInBatch);
-    void ProcessTypedLeftProb();
-    void ProcessTypedLeftProb(int SampleInBatch);
-
     void AppendtoMainVcf();
     void AppendtoMainWeightsFile();
 
@@ -142,12 +123,6 @@ public:
     void ReadCurrentDosageData();
     void CreateMetaImputedData(int VariantId);
     void CreateMetaImputedData();
-    void CalculateStats();
-    void WalkOneStepRight();
-    void WalkOneStepRight(int SampleInBatch);
-    void UpdateLeftProb();
-    void UpdateRightProb();
-    void UpdateRightProb(int HapInBatch);
     void MetaImpute(int Sample);
     void PrintMetaImputedData();
     void PrintMetaWeight();
@@ -157,7 +132,6 @@ public:
     void PrintMetaImputedRsq();
 
     string CreateInfo();
-    string CreateInfo(int i);
     string CreatePartialInfo();
     string CreateRsqInfo();
     void PrintDiploidDosage(float &x, float &y);

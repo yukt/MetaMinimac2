@@ -15,14 +15,10 @@ public:
     int bp;
     string chr;
     string refAlleleString,altAlleleString;
-    bool typed;
     vector<int> StudiesHasVariant;
     int NoStudiesHasVariant;
 
-    variant()
-    {
-        typed=false;
-    };
+    variant() {};
     variant(string &id,string &CHR,int &BP)
     {
         name=id;
@@ -69,11 +65,8 @@ public:
 
     // FUNCTIONS
     bool        CheckSampleConsistency                  (int tempNoSamples, vector<string> &tempindividualName, vector<int> tempSampleNoHaplotypes, string File1, string File2);
-    void        SortCommonGenotypeList                  (std::unordered_set<string> &CommonGenotypeVariantNameList, vector<string> &SortedCommonGenoList, vector<variant> &CommonTypedVariantList);
     void        ReadBasedOnSortCommonGenotypeList       (vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId);
     bool        CheckSuffixFile                         (string prefix, const char* suffix, string &FinalName);
-    void        LoadHapDoseVariant                      (VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
-
 
     bool        GetSampleInformation                    (string filename);
     bool        GetSampleInformationfromHDS             (string filename);
