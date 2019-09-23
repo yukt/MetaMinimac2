@@ -53,13 +53,10 @@ public:
     vector<IFILE> vcfrsqpartialList;
 
     variant* CurrentVariant;
-    variant ThisVariant;
-    string NextTypedName;
     int PrevBp, CurrBp;
     vector<vector<double>> *PrevWeights;
     vector<vector<double>> *CurrWeights;
     vector<float> CurrentMetaImputedDosage;
-    vector<vector<float>> CurrentPosterior;
 
     float CurrentHapDosageSum, CurrentHapDosageSumSq;
 
@@ -122,7 +119,6 @@ public:
     void ClearCurrentBuffer();
     void ReadCurrentDosageData();
     void CreateMetaImputedData(int VariantId);
-    void CreateMetaImputedData();
     void MetaImpute(int Sample);
     void PrintMetaImputedData();
     void PrintMetaWeight();
@@ -137,6 +133,10 @@ public:
     void PrintDiploidDosage(float &x, float &y);
     void PrintHaploidDosage(float &x);
     void PrintWeightForHaplotype(int haploId);
+    void summary()
+    {
+        cout << " Total #Sites = " << NoVariants << endl;
+    }
 
 };
 #endif //METAM_METAMINIMAC_H

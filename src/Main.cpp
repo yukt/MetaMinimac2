@@ -80,6 +80,7 @@ int main(int argc, char ** argv)
 
     printf("\n Meta-Imputation Completed in %d hours, %d mins, %d seconds.\n",
            time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
+    myAnalysis.summary();
 
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
 

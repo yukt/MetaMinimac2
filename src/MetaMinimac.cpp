@@ -688,6 +688,7 @@ void MetaMinimac::OutputPartialVcf()
     PrevWeights = &Weights[0], CurrWeights = &Weights[0];
 
     BufferBp = 0;
+    BufferNoVariants = 0;
 
     if(batchNo==1)
     {
@@ -784,6 +785,7 @@ void MetaMinimac::OutputAllVcf()
     PrevWeights = &Weights[0], CurrWeights = &Weights[0];
 
     BufferBp = 0;
+    BufferNoVariants = 0;
 
     do
     {
@@ -809,21 +811,11 @@ void MetaMinimac::OutputAllVcf()
     }while(true);
     NoRecords = NoRecordProcessed;
 
-    NoCommonVariantsProcessed = 0;
-    do
+    if (VcfPrintStringPointerLength > 0)
     {
-        FindCurrentMinimumPosition();
-        if(CurrentFirstVariantBp==MAXBP)
-            break;
-        ReadCurrentDosageData();
-        CreateMetaImputedData();
-        PrintVariantInfo();
-        PrintMetaImputedData();
-        UpdateCurrentRecords();
-    }while(true);
-
-
-    ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
+        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
+        VcfPrintStringPointerLength = 0;
+    }
     ifclose(vcfdosepartial);
 
     if(myUserVariables.debug)
@@ -1005,44 +997,6 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     }
 }
 
-void MetaMinimac::CreateMetaImputedData()
-{
-    CurrentHapDosageSum = 0;
-    CurrentHapDosageSumSq = 0;
-    CurrentMetaImputedDosage.clear();
-    CurrentPosterior.clear();
-
-    if(ThisVariant.name == NextTypedName) UpdateWeights();
-
-    if(NoStudiesHasVariant==1)
-    {
-        CurrentMetaImputedDosage = InputData[StudiesHasVariant[0]].CurrentHapDosage;
-        for(int i=0; i<2*(EndSamId-StartSamId); i++)
-        {
-            CurrentHapDosageSum += CurrentMetaImputedDosage[i];
-            CurrentHapDosageSumSq += CurrentMetaImputedDosage[i]*CurrentMetaImputedDosage[i];
-        }
-    }
-    else
-    {
-        CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
-        CurrentPosterior.resize(2*(EndSamId-StartSamId));
-        for(int id=0; id<EndSamId-StartSamId; id++)
-        {
-            int SampleId = StartSamId+id;
-            if(InputData[0].SampleNoHaplotypes[SampleId]==2)
-            {
-                MetaImpute(2*id);
-                MetaImpute(2*id + 1);
-            }
-            else
-            {
-                MetaImpute(2*id);
-            }
-        }
-    }
-}
-
 void MetaMinimac::UpdateWeights()
 {
     NoCommonVariantsProcessed++;
@@ -1056,7 +1010,6 @@ void MetaMinimac::UpdateWeights()
     else
     {
         CurrBp        = MAXBP;
-        NextTypedName = "No:More:Common:Typed";
     }
 }
 
