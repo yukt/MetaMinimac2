@@ -700,7 +700,7 @@ void MetaMinimac::OutputPartialVcf()
                 MetaImputeCurrentBuffer();
                 ClearCurrentBuffer();
                 if(CurrentFirstVariantBp == MAXBP) break;
-                else if(CurrentFirstVariantBp == CurrBp)
+                while(CurrentFirstVariantBp == CurrBp)
                 {
                     if(myUserVariables.debug) PrintMetaWeight();
                     UpdateWeights();
@@ -728,7 +728,7 @@ void MetaMinimac::OutputPartialVcf()
             {
                 MetaImputeCurrentBuffer2();
                 ClearCurrentBuffer();
-                if(CurrentFirstVariantBp == CurrBp)
+                while(CurrentFirstVariantBp == CurrBp)
                 {
                     if(myUserVariables.debug) PrintMetaWeight();
                     UpdateWeights();
@@ -795,7 +795,7 @@ void MetaMinimac::OutputAllVcf()
             MetaImputeCurrentBuffer3();
             ClearCurrentBuffer();
             if(CurrentFirstVariantBp == MAXBP) break;
-            else if(CurrentFirstVariantBp == CurrBp)
+            while(CurrentFirstVariantBp == CurrBp)
             {
                 if(myUserVariables.debug)
                 {
@@ -1024,7 +1024,7 @@ void MetaMinimac::MetaImpute(int Sample)
     for (int j=0; j<CurrentVariant->NoStudiesHasVariant; j++)
     {
         int index = CurrentVariant->StudiesHasVariant[j];
-        double Weight = (ThisPrevWeights[index]*(BufferBp-PrevBp)+ThisCurrWeights[index]*(CurrBp-BufferBp))*1.0/(CurrBp-PrevBp);
+        double Weight = (ThisPrevWeights[index]*(CurrBp-BufferBp)+ThisCurrWeights[index]*(BufferBp-PrevBp))*1.0/(CurrBp-PrevBp);
         WeightSum += Weight;
         Dosage += Weight * InputData[index].CurrentHapDosage[Sample];
     }
