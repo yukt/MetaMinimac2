@@ -43,6 +43,7 @@ The order of the parameter is the same as in the vector<Type> init.
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <cmath>
 
 namespace BT{
 
