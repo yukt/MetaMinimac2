@@ -84,6 +84,7 @@ public:
     void OpenStreamInputDosageFiles(bool siteOnly);
     void CloseStreamInputDosageFiles();
     bool OpenStreamOutputDosageFiles();
+    bool OpenStreamOutputWeightFiles();
     string GetDosageFileFullName(String prefix);
     bool doesExistFile(String filename);
 
@@ -96,6 +97,7 @@ public:
     void LoadLooDosage();
 
     String PerformFinalAnalysis();
+    bool PerformWeightEstimation();
     void CalculateWeights();
     void InitiateWeights();
     void CalculateLeftProbs();
@@ -104,6 +106,10 @@ public:
     void InitiateRightProb(int SampleInBatch);
     void UpdateOneStepLeft(int SampleInBatch);
     void UpdateOneStepRight(int SampleInBatch);
+    void OutputWeights();
+    void OutputPartialWeights();
+    void OutputAllWeights();
+
     void MetaImputeAndOutput();
     void UpdateWeights();
     void OutputPartialVcf();

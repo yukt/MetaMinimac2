@@ -46,6 +46,13 @@ String MetaMinimac::Analyze()
         return "File.Write.Error";
     }
 
+    if (!PerformWeightEstimation())
+    {
+        cout <<" Please check your write permissions in the output directory\n OR maybe the output directory does NOT exist ...\n";
+        cout << "\n Program Exiting ... \n\n";
+        return "Weight.Estimation.Error";
+    }
+
     return PerformFinalAnalysis();
 }
 
@@ -198,37 +205,6 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
     ifprintf(vcfdosepartial,"\n");
 
     ifclose(vcfdosepartial);
-
-    if(myUserVariables.debug)
-    {
-        metaWeight = ifopen(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-        WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
-        if(metaWeight==NULL)
-        {
-            cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
-            return false;
-        }
-        ifprintf(metaWeight,"##fileformat=NA\n");
-        time_t t = time(0);
-        struct tm * now = localtime( & t );
-        ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
-        ifprintf(metaWeight,"##source=MetaMinimac2.v%s\n",VERSION);
-        ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
-//        ifprintf(metaWeight,"##INFO=<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
-//        ifprintf(metaWeight,"##INFO=<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">\n");
-        ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
-
-        ifprintf(metaWeight,"#CHROM\tPOS\tID\tREF\tALT");
-
-        for(int Id=0;Id<InputData[0].numSamples;Id++)
-        {
-            ifprintf(metaWeight,"\t%s",InputData[0].individualName[Id].c_str());
-        }
-        ifprintf(metaWeight,"\n");
-        ifclose(metaWeight);
-
-    }
-
 
     return true;
 }
@@ -405,13 +381,18 @@ void MetaMinimac::LoadLooDosage()
         InputData[i].ReadBasedOnSortCommonGenotypeList(CommonGenotypeVariantNameList, StartSamId, EndSamId);
 }
 
-String MetaMinimac::PerformFinalAnalysis()
+
+bool MetaMinimac::PerformWeightEstimation()
 {
     cout << endl;
     cout << " ------------------------------------------------------------------------------" << endl;
-    cout << "                           META-IMPUTATION ANALYSIS                            " << endl;
+    cout << "                               WEIGHT ESTIMATION                               " << endl;
     cout << " ------------------------------------------------------------------------------" << endl;
 
+    if(!OpenStreamOutputWeightFiles())
+        return false;
+
+    int start_time = time(0);
 
     int maxVcfSample = myUserVariables.VcfBuffer;
 
@@ -419,27 +400,26 @@ String MetaMinimac::PerformFinalAnalysis()
 
     batchNo = 0;
 
-    int start_time, time_tot;
+    int start_time_partial, tot_time_partial;
 
     while(true)
     {
         batchNo++;
         EndSamId = StartSamId + (maxVcfSample) < NoSamples ? StartSamId + (maxVcfSample) : NoSamples;
-        cout << "\n Meta-Imputing Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
+        cout << "\n Estimate Meta-Weights for Sample " << StartSamId + 1 << "-" << EndSamId << " [" << setprecision(1) << fixed << 100 * (float) EndSamId / NoSamples << "%] ..." << endl;
 
-        start_time = time(0);
-
+        start_time_partial = time(0);
         // Read Data From empiricalDose
         LoadLooDosage();
 
         // Calculate weights
         CalculateWeights();
 
-        // Meta-Imputation
-        MetaImputeAndOutput();
+        // Output weights
+        OutputWeights();
 
-        time_tot = time(0) - start_time;
-        cout << " -- Successful (" << time_tot << " seconds) !!! " << endl;
+        tot_time_partial = time(0) - start_time_partial;
+        cout << " -- Successful (" << tot_time_partial << " seconds) !!! " << endl;
 
         StartSamId = EndSamId;
 
@@ -449,15 +429,43 @@ String MetaMinimac::PerformFinalAnalysis()
 
     if(batchNo > 1)
     {
-        AppendtoMainVcf();
-
-        if(myUserVariables.debug)
-        {
-            AppendtoMainWeightsFile();
-        }
+        AppendtoMainWeightsFile();
     }
+    int time_tot = time(0) - start_time;
+    printf("\n Weight Estimation Completed in %d hours, %d mins, %d seconds.\n",
+           time_tot / 3600, (time_tot % 3600) / 60, time_tot % 60);
 
-    return "Success";
+    return true;
+}
+
+bool MetaMinimac::OpenStreamOutputWeightFiles()
+{
+    // output file for weights
+    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+    WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
+    if(metaWeight==NULL)
+    {
+        cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
+        return false;
+    }
+    ifprintf(metaWeight,"##fileformat=VCFv4.1\n");
+    time_t t = time(0);
+    struct tm * now = localtime( & t );
+    ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
+    ifprintf(metaWeight,"##source=MetaMinimac2.v%s\n",VERSION);
+    ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
+    ifprintf(vcfdosepartial,"##FORMAT=<ID=WT,Number=1,Type=String,Description=\"Estimated Meta Weights : [ weights for haplotype 1 ] | [ weights for haplotype 2 ]\">\n");
+    ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
+
+    ifprintf(metaWeight,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
+
+    for(int Id=0;Id<InputData[0].numSamples;Id++)
+    {
+        ifprintf(metaWeight,"\t%s",InputData[0].individualName[Id].c_str());
+    }
+    ifprintf(metaWeight,"\n");
+    ifclose(metaWeight);
+    return true;
 }
 
 
@@ -657,6 +665,68 @@ void MetaMinimac::UpdateOneStepRight(int HapInBatch)
         ThisPrevRightProb[i] = ThisRightProb[i];
     }
 }
+
+void MetaMinimac::OutputWeights()
+{
+    if(myUserVariables.VcfBuffer<NoSamples)
+    {
+        OutputPartialWeights();
+    }
+    else
+    {
+        OutputAllWeights();
+    }
+}
+
+void MetaMinimac::OutputPartialWeights()
+{
+    stringstream ss;
+    ss << (batchNo);
+    string PartialWeightFileName(myUserVariables.outfile);
+    PartialWeightFileName += ".metaWeights.part."+(string)(ss.str()) + (myUserVariables.gzip ? ".gz" : "");
+    vcfweightpartial = ifopen(PartialWeightFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+    WeightPrintStringPointerLength = 0;
+
+    NoCommonVariantsProcessed = 0;
+
+    while ( NoCommonVariantsProcessed  < NoCommonTypedVariants)
+    {
+        CurrWeights = &Weights[NoCommonVariantsProcessed];
+        PrintMetaWeight();
+        NoCommonVariantsProcessed++;
+    }
+
+    if(WeightPrintStringPointerLength > 0)
+        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+    ifclose(vcfweightpartial);
+}
+
+void MetaMinimac::OutputAllWeights()
+{
+    WeightPrintStringPointerLength=0;
+    vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+
+    NoCommonVariantsProcessed = 0;
+
+    while ( NoCommonVariantsProcessed  < NoCommonTypedVariants)
+    {
+        CurrWeights = &Weights[NoCommonVariantsProcessed];
+        PrintWeightVariantInfo();
+        PrintMetaWeight();
+        NoCommonVariantsProcessed++;
+    }
+
+    if(WeightPrintStringPointerLength > 0)
+        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+    ifclose(vcfweightpartial);
+
+}
+
+String MetaMinimac::PerformFinalAnalysis()
+{
+    return "Success";
+}
+
 
 void MetaMinimac::MetaImputeAndOutput()
 {
@@ -1489,8 +1559,9 @@ string MetaMinimac::CreateRsqInfo()
 
 void MetaMinimac::PrintWeightVariantInfo()
 {
+    // "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT"
     variant& tempVariant = CommonTypedVariantList[NoCommonVariantsProcessed];
-    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s",
+    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s\t.\tPASS\t.\tWT",
                                             tempVariant.chr.c_str(), tempVariant.bp, tempVariant.name.c_str(),
                                             tempVariant.refAlleleString.c_str(), tempVariant.altAlleleString.c_str());
 }
