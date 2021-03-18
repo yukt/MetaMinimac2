@@ -148,6 +148,16 @@ void MetaMinimac::OpenStreamInputDosageFiles(bool siteOnly)
     finChromosome = CurrentRecordFromStudy[0]->getChromStr();
 }
 
+void MetaMinimac::OpenStreamInputWeightFiles()
+{
+    VcfHeader header;
+    InputWeightStream = new VcfFileReader();
+    CurrentRecordFromWeight = new VcfRecord();
+    InputWeightStream->open(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), header);
+    InputWeightStream->setSiteOnly(false);
+}
+
+
 void MetaMinimac::CloseStreamInputDosageFiles()
 {
     for (int i = 0; i < NoInPrefix; i++)
@@ -157,10 +167,17 @@ void MetaMinimac::CloseStreamInputDosageFiles()
     }
 }
 
+void MetaMinimac::CloseStreamInputWeightFiles()
+{
+    delete InputWeightStream;
+    delete CurrentRecordFromWeight;
+}
+
 bool MetaMinimac::OpenStreamOutputDosageFiles()
 {
     vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     VcfPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
+    VcfPrintStringPointerLength = 0;
     if(vcfdosepartial==NULL)
     {
         cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
@@ -443,6 +460,7 @@ bool MetaMinimac::OpenStreamOutputWeightFiles()
     // output file for weights
     metaWeight = ifopen(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
     WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
+    WeightPrintStringPointerLength = 0;
     if(metaWeight==NULL)
     {
         cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
@@ -697,7 +715,10 @@ void MetaMinimac::OutputPartialWeights()
     }
 
     if(WeightPrintStringPointerLength > 0)
+    {
         ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+        WeightPrintStringPointerLength = 0;
+    }
     ifclose(vcfweightpartial);
 }
 
@@ -717,32 +738,156 @@ void MetaMinimac::OutputAllWeights()
     }
 
     if(WeightPrintStringPointerLength > 0)
+    {
         ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+        WeightPrintStringPointerLength = 0;
+    }
     ifclose(vcfweightpartial);
 
 }
 
 String MetaMinimac::PerformFinalAnalysis()
 {
+    printf("\n Gathering dosege information and saving results for all samples ...\n");
+    OpenStreamInputDosageFiles(false);
+    OpenStreamInputWeightFiles();
+
+    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
+    VcfPrintStringPointerLength=0;
+
+    NoVariants = 0;
+    NoCommonVariantsProcessed = 0;
+    int NoRecordProcessed = 0;
+
+    if(!InitiateWeightsFromRecord())
+    {
+        cout << " Weight File Mismatch !!! \n";
+        cout << "\n Program Exiting ... \n\n";
+        return "Weight.Mismatch.Error";
+    }
+
+    BufferBp = 0;
+    BufferNoVariants = 0;
+
+    do
+    {
+        FindCurrentMinimumPosition();
+        if(CurrentFirstVariantBp>BufferBp)
+        {
+            MetaImputeCurrentBuffer3();
+            ClearCurrentBuffer();
+            if(CurrentFirstVariantBp == MAXBP) break;
+            while(CurrentFirstVariantBp == CurrBp)
+            {
+                UpdateWeights();
+            }
+        }
+        ReadCurrentDosageData();
+        UpdateCurrentRecords();
+        NoRecordProcessed++;
+    }while(true);
+    NoRecords = NoRecordProcessed;
+
+    if (VcfPrintStringPointerLength > 0)
+    {
+        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
+        VcfPrintStringPointerLength = 0;
+    }
+    ifclose(vcfdosepartial);
+
+
+    CloseStreamInputDosageFiles();
+    CloseStreamInputWeightFiles();
     return "Success";
 }
 
+bool MetaMinimac::InitiateWeightsFromRecord()
+{
+    PrevBp = 0, CurrBp = CommonTypedVariantList[0].bp;
+    WeightsFromCurrentRecord.clear();
+    WeightsFromPreviousRecord.clear();
+    WeightsFromCurrentRecord.resize(2*NoSamples);
+    WeightsFromPreviousRecord.resize(2*NoSamples);
+    for (int i=0; i<2*NoSamples; i++)
+    {
+        WeightsFromCurrentRecord[i].resize(NoInPrefix);
+        WeightsFromPreviousRecord[i].resize(NoInPrefix);
+    }
+
+    ReadCurrentWeights();
+
+    int bp = CurrentRecordFromWeight->get1BasedPosition();
+    if (bp != CurrBp)
+    {
+        return false;
+    }
+
+    CopyCurrentWeightsToPreviousWeights();
+
+    return true;
+}
+
+void MetaMinimac::ReadCurrentWeights()
+{
+    if(InputWeightStream->readRecord(*CurrentRecordFromWeight))
+    {
+        VcfRecordGenotype & ThisGenotype = CurrentRecordFromWeight->getGenotypeInfo();
+        for (int i=0; i<NoSamples; i++)
+        {
+            string temp=*ThisGenotype.getString("WT",i);
+            char *end_str;
+
+            if(InputData[0].SampleNoHaplotypes[i] == 2)
+            {
+                char *pch = strtok_r((char *) temp.c_str(), "|", &end_str);
+                StoreWeightsFromCurrentRecord(2*i, pch);
+                pch = strtok_r(NULL, "|", &end_str);
+                StoreWeightsFromCurrentRecord(2*i+1, pch);
+            }
+            else
+            {
+                StoreWeightsFromCurrentRecord(2*i, &temp[0u]);
+            }
+        }
+    }
+
+}
+
+void MetaMinimac::StoreWeightsFromCurrentRecord(int i, char* str)
+{
+
+    char *end_str;
+    char *pch = strtok_r(str, ",", &end_str);
+    vector<float> &ThisWeight = WeightsFromCurrentRecord[i];
+    ThisWeight[0] = atof(pch);
+
+    for (int i=1; i<NoInPrefix; i++)
+    {
+        pch = strtok_r(NULL, ",", &end_str);
+        ThisWeight[i] = atof(pch);
+    }
+}
+void MetaMinimac::CopyCurrentWeightsToPreviousWeights()
+{
+    for (int i=0; i<2*NoSamples; i++)
+    {
+        vector<float> &ThisWeight = WeightsFromCurrentRecord[i];
+        vector<float> &PrevWeight = WeightsFromPreviousRecord[i];
+        for (int j=0; j<NoInPrefix; j++)
+        {
+            PrevWeight[j] = ThisWeight[j];
+        }
+
+    }
+}
 
 void MetaMinimac::MetaImputeAndOutput()
 {
     printf(" -- Gathering Dosage Data and Saving Results ...\n");
 
     OpenStreamInputDosageFiles(false);
+    OpenStreamInputWeightFiles();
 
-    if(myUserVariables.VcfBuffer<NoSamples)
-    {
-        OpenTempOutputFiles();
-        OutputPartialVcf();
-    }
-    else
-    {
-        OutputAllVcf();
-    }
 
     CloseStreamInputDosageFiles();
 
@@ -990,7 +1135,8 @@ void MetaMinimac::ReadCurrentDosageData()
     for(int j=0; j<NoStudiesHasVariant; j++)
     {
         int index = StudiesHasVariant[j];
-        InputData[index].LoadData(VariantId,CurrentRecordFromStudy[index]->getGenotypeInfo(), StartSamId, EndSamId);
+//        InputData[index].LoadData(VariantId,CurrentRecordFromStudy[index]->getGenotypeInfo(), StartSamId, EndSamId);
+        InputData[index].LoadData(VariantId,CurrentRecordFromStudy[index]->getGenotypeInfo(), 0, NoSamples);
     }
 }
 
@@ -1028,7 +1174,6 @@ void MetaMinimac::MetaImputeCurrentBuffer3()
     }
 }
 
-
 void MetaMinimac::CreateMetaImputedData(int VariantId)
 {
     CurrentHapDosageSum = 0;
@@ -1037,7 +1182,7 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     if(CurrentVariant->NoStudiesHasVariant==1)
     {
         CurrentMetaImputedDosage=InputData[CurrentVariant->StudiesHasVariant[0]].BufferHapDosage[0];
-        for(int i=0; i<2*(EndSamId-StartSamId); i++)
+        for(int i=0; i<2*NoSamples; i++)
         {
             CurrentHapDosageSum += CurrentMetaImputedDosage[i];
             CurrentHapDosageSumSq += CurrentMetaImputedDosage[i]*CurrentMetaImputedDosage[i];
@@ -1045,16 +1190,15 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     }
     else
     {
-        CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
+        CurrentMetaImputedDosage.resize(2*NoSamples);
         for (int j=0; j<CurrentVariant->NoStudiesHasVariant; j++)
         {
             int index = CurrentVariant->StudiesHasVariant[j];
             InputData[index].GetData(VariantId);
         }
-        for(int id=0; id<EndSamId-StartSamId; id++)
+        for(int id=0; id<NoSamples; id++)
         {
-            int SampleId = StartSamId+id;
-            if(InputData[0].SampleNoHaplotypes[SampleId]==2)
+            if(InputData[0].SampleNoHaplotypes[id]==2)
             {
                 MetaImpute(2*id);
                 MetaImpute(2*id + 1);
@@ -1067,34 +1211,89 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     }
 }
 
+//void MetaMinimac::CreateMetaImputedData(int VariantId)
+//{
+//    CurrentHapDosageSum = 0;
+//    CurrentHapDosageSumSq = 0;
+//    CurrentMetaImputedDosage.clear();
+//    if(CurrentVariant->NoStudiesHasVariant==1)
+//    {
+//        CurrentMetaImputedDosage=InputData[CurrentVariant->StudiesHasVariant[0]].BufferHapDosage[0];
+//        for(int i=0; i<2*(EndSamId-StartSamId); i++)
+//        {
+//            CurrentHapDosageSum += CurrentMetaImputedDosage[i];
+//            CurrentHapDosageSumSq += CurrentMetaImputedDosage[i]*CurrentMetaImputedDosage[i];
+//        }
+//    }
+//    else
+//    {
+//        CurrentMetaImputedDosage.resize(2*(EndSamId-StartSamId));
+//        for (int j=0; j<CurrentVariant->NoStudiesHasVariant; j++)
+//        {
+//            int index = CurrentVariant->StudiesHasVariant[j];
+//            InputData[index].GetData(VariantId);
+//        }
+//        for(int id=0; id<EndSamId-StartSamId; id++)
+//        {
+//            int SampleId = StartSamId+id;
+//            if(InputData[0].SampleNoHaplotypes[SampleId]==2)
+//            {
+//                MetaImpute(2*id);
+//                MetaImpute(2*id + 1);
+//            }
+//            else
+//            {
+//                MetaImpute(2*id);
+//            }
+//        }
+//    }
+//}
+
 void MetaMinimac::UpdateWeights()
 {
     NoCommonVariantsProcessed++;
-    PrevWeights = CurrWeights;
-    PrevBp      = CurrBp;
+    CopyCurrentWeightsToPreviousWeights();
+    PrevBp = CurrBp;
     if(NoCommonVariantsProcessed < NoCommonTypedVariants)
     {
-        CurrWeights   = &Weights[NoCommonVariantsProcessed];
-        CurrBp        = CommonTypedVariantList[NoCommonVariantsProcessed].bp;
+        ReadCurrentWeights();
+        CurrBp = CommonTypedVariantList[NoCommonVariantsProcessed].bp;
     }
     else
     {
-        CurrBp        = MAXBP;
+        CurrBp = MAXBP;
     }
 }
 
+
+//void MetaMinimac::UpdateWeights()
+//{
+//    NoCommonVariantsProcessed++;
+//    PrevWeights = CurrWeights;
+//    PrevBp      = CurrBp;
+//    if(NoCommonVariantsProcessed < NoCommonTypedVariants)
+//    {
+//        CurrWeights   = &Weights[NoCommonVariantsProcessed];
+//        CurrBp        = CommonTypedVariantList[NoCommonVariantsProcessed].bp;
+//    }
+//    else
+//    {
+//        CurrBp        = MAXBP;
+//    }
+//}
+
 void MetaMinimac::MetaImpute(int Sample)
 {
-    vector<double>& ThisPrevWeights = (*PrevWeights)[Sample];
-    vector<double>& ThisCurrWeights = (*CurrWeights)[Sample];
+    vector<float>& ThisPrevWeights = WeightsFromPreviousRecord[Sample];
+    vector<float>& ThisCurrWeights = WeightsFromCurrentRecord[Sample];
 
-    double WeightSum = 0.0;
-    double Dosage = 0.0;
+    float WeightSum = 0.0;
+    float Dosage = 0.0;
 
     for (int j=0; j<CurrentVariant->NoStudiesHasVariant; j++)
     {
         int index = CurrentVariant->StudiesHasVariant[j];
-        double Weight = (ThisPrevWeights[index]*(CurrBp-BufferBp)+ThisCurrWeights[index]*(BufferBp-PrevBp))*1.0/(CurrBp-PrevBp);
+        float Weight = (ThisPrevWeights[index]*(CurrBp-BufferBp)+ThisCurrWeights[index]*(BufferBp-PrevBp))*1.0/(CurrBp-PrevBp);
         WeightSum += Weight;
         Dosage += Weight * InputData[index].CurrentHapDosage[Sample];
     }
@@ -1108,9 +1307,9 @@ void MetaMinimac::MetaImpute(int Sample)
 
 void MetaMinimac::PrintMetaImputedData()
 {
-    for(int id=0; id<EndSamId-StartSamId; id++)
+    for(int id=0; id<NoSamples; id++)
     {
-        if( InputData[0].SampleNoHaplotypes[StartSamId+id]==2 )
+        if( InputData[0].SampleNoHaplotypes[id]==2 )
             PrintDiploidDosage((CurrentMetaImputedDosage[2*id]), (CurrentMetaImputedDosage[2*id+1]));
         else
             PrintHaploidDosage((CurrentMetaImputedDosage[2*id]));
@@ -1124,6 +1323,26 @@ void MetaMinimac::PrintMetaImputedData()
     }
 
 }
+
+
+//void MetaMinimac::PrintMetaImputedData()
+//{
+//    for(int id=0; id<EndSamId-StartSamId; id++)
+//    {
+//        if( InputData[0].SampleNoHaplotypes[StartSamId+id]==2 )
+//            PrintDiploidDosage((CurrentMetaImputedDosage[2*id]), (CurrentMetaImputedDosage[2*id+1]));
+//        else
+//            PrintHaploidDosage((CurrentMetaImputedDosage[2*id]));
+//    }
+//
+//    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"\n");
+//    if(VcfPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
+//    {
+//        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
+//        VcfPrintStringPointerLength=0;
+//    }
+//
+//}
 
 void MetaMinimac::PrintMetaImputedRsq()
 {
@@ -1564,6 +1783,11 @@ void MetaMinimac::PrintWeightVariantInfo()
     WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s\t.\tPASS\t.\tWT",
                                             tempVariant.chr.c_str(), tempVariant.bp, tempVariant.name.c_str(),
                                             tempVariant.refAlleleString.c_str(), tempVariant.altAlleleString.c_str());
+    if(WeightPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
+    {
+        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
+        WeightPrintStringPointerLength = 0;
+    }
 }
 
 void MetaMinimac::AppendtoMainWeightsFile()

@@ -30,6 +30,11 @@ public:
 
     vector<HaplotypeSet> InputData;
 
+    // Variables for input weight file stream and records
+    VcfFileReader* InputWeightStream;
+    VcfRecord* CurrentRecordFromWeight;
+    vector<vector<float>> WeightsFromCurrentRecord, WeightsFromPreviousRecord;
+
     // Process Part of Samples each time
     int StartSamId, EndSamId;
     double lambda;
@@ -82,7 +87,9 @@ public:
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
     void OpenStreamInputDosageFiles(bool siteOnly);
+    void OpenStreamInputWeightFiles();
     void CloseStreamInputDosageFiles();
+    void CloseStreamInputWeightFiles();
     bool OpenStreamOutputDosageFiles();
     bool OpenStreamOutputWeightFiles();
     string GetDosageFileFullName(String prefix);
@@ -96,7 +103,7 @@ public:
 
     void LoadLooDosage();
 
-    String PerformFinalAnalysis();
+
     bool PerformWeightEstimation();
     void CalculateWeights();
     void InitiateWeights();
@@ -110,6 +117,11 @@ public:
     void OutputPartialWeights();
     void OutputAllWeights();
 
+    String PerformFinalAnalysis();
+    bool InitiateWeightsFromRecord();
+    void ReadCurrentWeights();
+    void StoreWeightsFromCurrentRecord(int i, char* str);
+    void CopyCurrentWeightsToPreviousWeights();
     void MetaImputeAndOutput();
     void UpdateWeights();
     void OutputPartialVcf();
