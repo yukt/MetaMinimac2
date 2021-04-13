@@ -362,6 +362,7 @@ void HaplotypeSet::GetData(int VariantId)
 
 void HaplotypeSet::ClearBuffer()
 {
+    noMarkers += BufferNoVariants;
     BufferHapDosage.clear();
     BufferNoVariants = 0;
     VariantId2Buffer.clear();

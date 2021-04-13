@@ -122,18 +122,10 @@ public:
     void ReadCurrentWeights();
     void StoreWeightsFromCurrentRecord(int i, char* str);
     void CopyCurrentWeightsToPreviousWeights();
-    void MetaImputeAndOutput();
     void UpdateWeights();
-    void OutputPartialVcf();
-    void OutputAllVcf();
-
-    void OpenTempOutputFiles();
-    void AppendtoMainVcf();
     void AppendtoMainWeightsFile();
 
     void MetaImputeCurrentBuffer();
-    void MetaImputeCurrentBuffer2();
-    void MetaImputeCurrentBuffer3();
     void ClearCurrentBuffer();
     void ReadCurrentDosageData();
     void CreateMetaImputedData(int VariantId);
@@ -141,19 +133,20 @@ public:
     void PrintMetaImputedData();
     void PrintMetaWeight();
     void PrintVariantInfo();
-    void PrintVariantPartialInfo();
     void PrintWeightVariantInfo();
-    void PrintMetaImputedRsq();
 
     string CreateInfo();
-    string CreatePartialInfo();
-    string CreateRsqInfo();
     void PrintDiploidDosage(float &x, float &y);
     void PrintHaploidDosage(float &x);
     void PrintWeightForHaplotype(int haploId);
     void summary()
     {
-        cout << " Total #Sites = " << NoVariants << endl;
+        for (int i=0; i<NoInPrefix; i++)
+        {
+            cout << " Study " << i+1 << " #Markers = " << InputData[i].noMarkers << endl;
+        }
+
+        cout << " Total #Markers   = " << NoVariants << endl;
     }
 
 };
