@@ -260,6 +260,28 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     inFile.close();
 }
 
+void HaplotypeSet::LoadCurrentGT(VcfRecordGenotype & ThisGenotype)
+{
+    CurrentHapDosage.clear();
+    CurrentHapDosage.resize(2*numSamples);
+    for (int i=0; i<numSamples; i++)
+    {
+        string temp = *ThisGenotype.getString("GT", i);
+        if(SampleNoHaplotypes[i]==2)
+        {
+            char *end_str1;
+            char *pch1 = strtok_r((char *) temp.c_str(), "|", &end_str1);
+            CurrentHapDosage[2*i] = atof(pch1);
+            pch1 = strtok_r(NULL, "\t", &end_str1);
+            CurrentHapDosage[2*i+1] = atof(pch1);
+        }
+        else
+        {
+            CurrentHapDosage[2*i] = atof(temp.c_str());
+        }
+    }
+}
+
 void HaplotypeSet::LoadLooVariant(VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId)
 {
     int NoHapsLoad = 0;
@@ -356,6 +378,7 @@ void HaplotypeSet::LoadData(int VariantId, VcfRecordGenotype &ThisGenotype, int 
 
 void HaplotypeSet::GetData(int VariantId)
 {
+    CurrentHapDosage.clear();
     int index=VariantId2Buffer[VariantId];
     CurrentHapDosage=BufferHapDosage[index];
 }

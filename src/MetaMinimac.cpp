@@ -39,13 +39,10 @@ String MetaMinimac::Analyze()
         return "Input.VCF.Dose.Error";
     }
 
-    if (myUserVariables.hapcheck)
+    if(!CheckPhasingConsistency())
     {
-        if(!CheckPhasingConsistency())
-        {
-            cout << "\n Program Exiting ... \n\n";
-            return "Phasing.Inconsistency.Error";
-        }
+        cout << "\n Program Exiting ... \n\n";
+        return "Phasing.Inconsistency.Error";
     }
 
     if (!OpenStreamOutputDosageFiles())
@@ -113,7 +110,7 @@ bool MetaMinimac::ParseInputVCFFiles()
 
 bool MetaMinimac::CheckSampleNameCompatibility()
 {
-    cout<<"\n Checking Sample Compatibility across files ... "<<endl;
+    cout<<"\n Checking sample compatibility across files ... "<<endl;
     for(int i=0;i<NoInPrefix;i++)
     {
         // First, check if dose file and empiricalDose file exist
@@ -160,9 +157,27 @@ void MetaMinimac::OpenStreamInputDosageFiles()
         InputDosageStream[i]->setSiteOnly(false);
         InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i]);
         InputData[i].noMarkers = 0;
-        InputData[i].noTypedMarkers = 0;
     }
 }
+
+void MetaMinimac::OpenStreamInputEmpiricalDoseFiles()
+{
+    InputDosageStream.clear();
+    CurrentRecordFromStudy.clear();
+
+    InputDosageStream.resize(NoInPrefix);
+    CurrentRecordFromStudy.resize(NoInPrefix);
+
+    for(int i=0; i<NoInPrefix;i++)
+    {
+        VcfHeader header;
+        InputDosageStream[i] = new VcfFileReader();
+        CurrentRecordFromStudy[i]= new VcfRecord();
+        InputDosageStream[i]->open( InputData[i].EmpDoseFileName.c_str(), header);
+        InputDosageStream[i]->setSiteOnly(false);
+    }
+}
+
 
 void MetaMinimac::OpenStreamInputWeightFiles()
 {
@@ -317,6 +332,78 @@ void MetaMinimac::FindCommonGenotypedVariants()
 
 bool MetaMinimac::CheckPhasingConsistency()
 {
+    if (!myUserVariables.hapcheck)
+    {
+        cout << "\n Phasing Consistency Check is Skipped." << endl;
+    }
+
+    cout<<"\n Checking phasing consistency across input files ... "<<endl;
+    OpenStreamInputEmpiricalDoseFiles();
+
+    string chrom, altAllele, refAllele, name;
+    int bp;
+
+    for (int k=0; k<NoCommonTypedVariants; k++)
+    {
+        string common_variant = CommonGenotypeVariantNameList[k];
+
+        NoStudiesHasVariant = 0;
+
+        for(int i=0; i<NoInPrefix; i++)
+        {
+            while(InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i])) {
+                chrom = CurrentRecordFromStudy[i]->getChromStr();
+                bp = CurrentRecordFromStudy[i]->get1BasedPosition();
+                altAllele = CurrentRecordFromStudy[i]->getAltStr();
+                refAllele = CurrentRecordFromStudy[i]->getRefStr();
+                name = chrom + ":" + to_string(bp) + ":" + refAllele + ":" + altAllele;
+                if (name == common_variant)
+                {
+                    InputData[i].LoadCurrentGT(CurrentRecordFromStudy[i]->getGenotypeInfo());
+                    NoStudiesHasVariant++;
+                    break;
+                }
+            }
+        }
+
+        if (NoStudiesHasVariant < NoInPrefix)
+        {
+            cout<<" Did not found SNP " << common_variant << " in all the files" << endl;
+            cout<<" ERROR CODE 2819: Please contact author with this code to help with bug fixing ..."<<endl;
+            return false;
+        }
+
+        bool flag_consistent = true;
+        for (int j=0; j<NoSamples; j++)
+        {
+            if (InputData[0].SampleNoHaplotypes[j] == 2)
+            {
+                for(int i=1; i<NoInPrefix; i++)
+                {
+                    if (InputData[i].CurrentHapDosage[2*j] != InputData[0].CurrentHapDosage[2*j])
+                        flag_consistent = false;
+                    if (InputData[i].CurrentHapDosage[2*j+1] != InputData[0].CurrentHapDosage[2*j+1])
+                        flag_consistent = false;
+                }
+            }
+            else
+            {
+                for(int i=1; i<NoInPrefix; i++)
+                {
+                    if (InputData[i].CurrentHapDosage[2*j] != InputData[0].CurrentHapDosage[2*j])
+                        flag_consistent = false;
+                }
+            }
+        }
+        if(!flag_consistent)
+        {
+            cout << "Phasing is not consistent at SNP " << common_variant << "." << endl;
+            return false;
+        }
+
+    }
+
+    cout<<" -- Consistent among commonly genotyped sites." <<endl;
     return true;
 }
 

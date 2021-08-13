@@ -87,6 +87,7 @@ public:
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
     void OpenStreamInputDosageFiles();
+    void OpenStreamInputEmpiricalDoseFiles();
     void OpenStreamInputWeightFiles();
     void CloseStreamInputDosageFiles();
     void CloseStreamInputWeightFiles();

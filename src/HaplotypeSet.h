@@ -72,6 +72,7 @@ public:
     bool        GetSampleInformationfromHDS             (string filename);
     void        LoadEmpVariantList                      ();
     void        ClearEmpVariantList                     ();
+    void        LoadCurrentGT                           (VcfRecordGenotype &ThisGenotype);
     void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
     bool        LoadSampleNames                         (string prefix);
     bool        doesExistFile                           (string filename);
