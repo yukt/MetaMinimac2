@@ -20,6 +20,9 @@ public:
     bool gzip, nobgzip;
     bool log;
 
+    // check phasing consistency
+    bool hapcheck;
+
     string CommandLine;
 
     UserVariables()
@@ -42,6 +45,7 @@ public:
         nobgzip = false;
         VcfBuffer = 1000;
         log = false;
+        hapcheck = false;
     };
 
     void Status()
@@ -50,10 +54,11 @@ public:
         printf( "      --input [%s],\n", inputFiles.c_str());
         printf( "      --output [%s],\n", outfile.c_str());
         printf( "      --format [%s],\n", formatString.c_str());
-        printf( "      --skipInfo %s,", infoDetails?"":"[ON]");
-        printf( " --nobgzip %s,", nobgzip?"[ON]":"");
-        printf( " --weight %s,", debug?"[ON]":"");
-        printf( " --log %s", log?"[ON]":"");
+        printf( "      --skipInfo %s,\n", infoDetails?"[OFF]":"[ON]");
+        printf( "      --hapCheck %s,\n", hapcheck?"[ON]":"[OFF]");
+        printf( "      --nobgzip  %s,\n", nobgzip?"[ON]":"[OFF]");
+        printf( "      --weight   %s,\n", debug?"[ON]":"[OFF]");
+        printf( "      --log      %s.", log?"[ON]":"[OFF]");
         printf("\n\n");
     }
 

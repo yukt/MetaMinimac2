@@ -22,6 +22,7 @@ int main(int argc, char ** argv)
                     {"nobgzip",no_argument,NULL,'n'},
                     {"log",no_argument,NULL,'l'},
                     {"weight",no_argument,NULL,'w'},
+                    {"hapCheck",no_argument,NULL,'c'},
                     {"help",no_argument,NULL,'h'},
                     {NULL,0,NULL,0}
             };
@@ -36,6 +37,7 @@ int main(int argc, char ** argv)
             case 's': myAnalysis.myUserVariables.infoDetails = false; break;
             case 'n': myAnalysis.myUserVariables.nobgzip=true; break;
             case 'v': myAnalysis.myUserVariables.VcfBuffer=atoi(optarg); break;
+            case 'c': myAnalysis.myUserVariables.hapcheck=true; break;
             case 'h': help=true; break;
             case 'l': myAnalysis.myUserVariables.log=true; break;
             case '?': helpFile(); return 1;

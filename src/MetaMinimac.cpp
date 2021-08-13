@@ -39,6 +39,15 @@ String MetaMinimac::Analyze()
         return "Input.VCF.Dose.Error";
     }
 
+    if (myUserVariables.hapcheck)
+    {
+        if(!CheckPhasingConsistency())
+        {
+            cout << "\n Program Exiting ... \n\n";
+            return "Phasing.Inconsistency.Error";
+        }
+    }
+
     if (!OpenStreamOutputDosageFiles())
     {
         cout <<" Please check your write permissions in the output directory\n OR maybe the output directory does NOT exist ...\n";
@@ -107,8 +116,12 @@ bool MetaMinimac::CheckSampleNameCompatibility()
     cout<<"\n Checking Sample Compatibility across files ... "<<endl;
     for(int i=0;i<NoInPrefix;i++)
     {
+        // First, check if dose file and empiricalDose file exist
+        // Second, check if sample names are consistent between dose file and empiricalDose file
         if(!InputData[i].LoadSampleNames(InPrefixList[i].c_str()))
             return false;
+
+        // Check if sample names are consistent with InputData[0]
         if(i>0)
             if(!InputData[i].CheckSampleConsistency(InputData[i-1].numSamples,
                                                     InputData[i-1].individualName,
@@ -129,8 +142,12 @@ bool MetaMinimac::CheckSampleNameCompatibility()
 }
 
 
-void MetaMinimac::OpenStreamInputDosageFiles(bool siteOnly)
+void MetaMinimac::OpenStreamInputDosageFiles()
 {
+    InputDosageStream.clear();
+    CurrentRecordFromStudy.clear();
+    StudiesHasVariant.clear();
+
     InputDosageStream.resize(NoInPrefix);
     CurrentRecordFromStudy.resize(NoInPrefix);
     StudiesHasVariant.resize(NoInPrefix);
@@ -139,13 +156,12 @@ void MetaMinimac::OpenStreamInputDosageFiles(bool siteOnly)
         VcfHeader header;
         InputDosageStream[i] = new VcfFileReader();
         CurrentRecordFromStudy[i]= new VcfRecord();
-        InputDosageStream[i]->open( (GetDosageFileFullName(InPrefixList[i])).c_str() , header);
-        InputDosageStream[i]->setSiteOnly(siteOnly);
+        InputDosageStream[i]->open( InputData[i].DoseFileName.c_str(), header);
+        InputDosageStream[i]->setSiteOnly(false);
         InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i]);
         InputData[i].noMarkers = 0;
         InputData[i].noTypedMarkers = 0;
     }
-    finChromosome = CurrentRecordFromStudy[0]->getChromStr();
 }
 
 void MetaMinimac::OpenStreamInputWeightFiles()
@@ -231,32 +247,6 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
     return true;
 }
 
-
-string MetaMinimac::GetDosageFileFullName(String prefix)
-{
-    if(doesExistFile(prefix+".dose.vcf"))
-        return (string)prefix+".dose.vcf";
-    else if(doesExistFile(prefix+".dose.vcf.gz"))
-        return (string)prefix+".dose.vcf.gz";
-    return "";
-}
-
-
-bool MetaMinimac::doesExistFile(String filename)
-{
-    IFILE ifs = ifopen(filename.c_str(), "r");
-    if (ifs)
-    {
-        ifclose(ifs);
-        return true;
-    }
-    else
-    {
-        ifclose(ifs);
-        return false;
-    }
-}
-
 bool MetaMinimac::LoadEmpVariantInfo()
 {
     cout<<"\n Scanning input empirical VCFs for commonly typed SNPs ... "<<endl;
@@ -266,8 +256,15 @@ bool MetaMinimac::LoadEmpVariantInfo()
         InputData[i].LoadEmpVariantList();
         cout<<" -- Study "<<i+1<<" #Genotyped Sites = "<<InputData[i].noTypedMarkers<<endl;
     }
+
     finChromosome = InputData[0].finChromosome;
     FindCommonGenotypedVariants();
+
+    if (NoCommonTypedVariants < 1)
+    {
+        cout << " -- No commonly genotyped sites found!!!" << endl;
+        return false;
+    }
 
     cout<<" -- Found " << NoCommonTypedVariants <<" commonly genotyped! "<<endl;
     cout<<" -- Successful (" << (time(0)-time_start) << " seconds) !!!" << endl;
@@ -318,6 +315,10 @@ void MetaMinimac::FindCommonGenotypedVariants()
     }
 }
 
+bool MetaMinimac::CheckPhasingConsistency()
+{
+    return true;
+}
 
 void MetaMinimac::FindCurrentMinimumPosition() {
 
@@ -762,7 +763,7 @@ String MetaMinimac::PerformFinalAnalysis()
 
     int start_time = time(0);
 
-    OpenStreamInputDosageFiles(false);
+    OpenStreamInputDosageFiles();
     OpenStreamInputWeightFiles();
 
     vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);

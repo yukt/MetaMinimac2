@@ -86,17 +86,16 @@ public:
 
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
-    void OpenStreamInputDosageFiles(bool siteOnly);
+    void OpenStreamInputDosageFiles();
     void OpenStreamInputWeightFiles();
     void CloseStreamInputDosageFiles();
     void CloseStreamInputWeightFiles();
     bool OpenStreamOutputDosageFiles();
     bool OpenStreamOutputWeightFiles();
-    string GetDosageFileFullName(String prefix);
-    bool doesExistFile(String filename);
 
     bool LoadEmpVariantInfo();
     void FindCommonGenotypedVariants();
+    bool CheckPhasingConsistency();
     void FindCurrentMinimumPosition();
     int IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2);
     void UpdateCurrentRecords();
