@@ -35,22 +35,20 @@ MetaMinimac2 -i PanelA.imputed:PanelB.imputed -o A_B.meta.testrun
 -i, --input  <prefix1:prefix2 ...>  (Required) Colon-separated prefixes of input data to meta-impute
 -o, --output <prefix>               (Required) Output prefix [MetaMinimac.Output.Prefix]
 -f, --format <string>               Comma-separated output FORMAT tags [GT,DS,HDS]
--c, --phasingCheck                  If ON, the program will check phasing consistency before analysis.
--s, --skipInfo                      If ON, the INFO fields are removed from the output file
--n, --nobgzip                       If ON, output files will NOT be bgzipped
--w, --weight                        If ON, weights will be saved in [MetaMinimac.Output.Prefix].metaWeights(.gz)
--l, --log                           If ON, log will be written to $prefix.logfile
--h, --help                          If ON, detailed help on options and usage
+-p, --skipPhasingCheck              OFF by default. If ON, program will skip phasing consistency check before analysis. 
+-s, --skipInfo                      OFF by default. If ON, the INFO fields are removed from the output file
+-n, --nobgzip                       OFF by default. If ON, output files will NOT be bgzipped
+-w, --weight                        OFF by default. If ON, weights will be saved in [MetaMinimac.Output.Prefix].metaWeights(.gz)
+-l, --log                           OFF by default. If ON, log will be written to $prefix.logfile
+-h, --help                          OFF by default. If ON, detailed documentation on options and usage will be displayed
 ```
 
 ## Important Notes
-_**Phasing must be consistent across input files !!!**_ 
+_**Phasing must be consistent across input files !!!**_ If the phasing is different between input imputed files, the resulting meta dosage (which is supposed to be a weighted average of imputed dosages on the same haplotype) will be messed up. Therefore, we highly recommend that users always keep `--skipPhasingCheck` OFF  to avoid any risk.
 
 The best practice is to do the phasing first and use the same pre-phased vcf file for imputation against different reference panels. 
 
 When the phasing step is performed by imputation server (e.g. [Michigan Imputation Server](imputationserver.sph.umich.edu), [TOPMed Imputation Server](https://imputation.biodatacatalyst.nhlbi.nih.gov)) where the phased vcf file is not provided as output, please consider using the output `.empiricalDose.vcf.gz` file for imputation against other reference panels. Note that `.empiricalDose.vcf.gz` file only contains genotyped sites included in the corresponding reference panel, so the imputation quality using empiricalDose.vcf might be worse than that using a pre-phased vcf including all genotyped sites.
-
-If not sure about phasing consistency of the input files for MetaMinimac2, please turn `--phasingCheck` ON, which will stop the analysis when inconsistency is detected.
 
 ## Output Files
 The meta-imputed result will be saved in `[MetaMinimac.Output.Prefix].metaDose.vcf.gz`.
