@@ -45,7 +45,7 @@ public:
         nobgzip = false;
         VcfBuffer = 1000;
         log = false;
-        hapcheck = false;
+        hapcheck = true;
     };
 
     void Status()
@@ -54,7 +54,7 @@ public:
         printf( "      --input [%s],\n", inputFiles.c_str());
         printf( "      --output [%s],\n", outfile.c_str());
         printf( "      --format [%s],\n", formatString.c_str());
-        printf( "      --phasingCheck %s,\n", hapcheck?"[ON]":"[OFF]");
+        printf( "      --skipPhasingCheck %s,\n", hapcheck?"[OFF]":"[ON]");
         printf( "      --skipInfo %s,\n", infoDetails?"[OFF]":"[ON]");
         printf( "      --nobgzip  %s,\n", nobgzip?"[ON]":"[OFF]");
         printf( "      --weight   %s,\n", debug?"[ON]":"[OFF]");

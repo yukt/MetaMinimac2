@@ -334,8 +334,13 @@ bool MetaMinimac::CheckPhasingConsistency()
 {
     if (!myUserVariables.hapcheck)
     {
-        cout << "\n Phasing Consistency Check is Skipped." << endl;
+        cout << "\n Warning !!! Phasing Consistency Check is Skipped." << endl;
+        cout << "\n User is responsible for making sure the phasing are consistent across input files.";
+        cout << "\n If phasing is inconsistent, meta-imputed results will not make sense." << endl;
+        return true;
     }
+
+    int start_time = time(0);
 
     cout<<"\n Checking phasing consistency across input files ... "<<endl;
     OpenStreamInputEmpiricalDoseFiles();
@@ -398,12 +403,17 @@ bool MetaMinimac::CheckPhasingConsistency()
         if(!flag_consistent)
         {
             cout << "Phasing is not consistent at SNP " << common_variant << "." << endl;
+            cout << "\n Please note that phasing consistency is important, ";
+            cout << "\n because meta-imputation is performed on individual haplotype.";
+            cout << "\n If the phasing is different between input imputed files,";
+            cout << "\n then the resulting meta dosages will not make any sense." << endl;
             return false;
         }
 
     }
 
     cout<<" -- Consistent among commonly genotyped sites." <<endl;
+    cout<<" -- Completed in " << time(0)-start_time << " seconds." << endl;
     return true;
 }
 

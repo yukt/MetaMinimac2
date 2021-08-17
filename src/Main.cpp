@@ -22,7 +22,7 @@ int main(int argc, char ** argv)
                     {"nobgzip",no_argument,NULL,'n'},
                     {"log",no_argument,NULL,'l'},
                     {"weight",no_argument,NULL,'w'},
-                    {"phasingCheck",no_argument,NULL,'c'},
+                    {"skipPhasingCheck",no_argument,NULL,'p'},
                     {"help",no_argument,NULL,'h'},
                     {NULL,0,NULL,0}
             };
@@ -37,7 +37,7 @@ int main(int argc, char ** argv)
             case 's': myAnalysis.myUserVariables.infoDetails = false; break;
             case 'n': myAnalysis.myUserVariables.nobgzip=true; break;
             case 'v': myAnalysis.myUserVariables.VcfBuffer=atoi(optarg); break;
-            case 'c': myAnalysis.myUserVariables.hapcheck=true; break;
+            case 'p': myAnalysis.myUserVariables.hapcheck=false; break;
             case 'h': help=true; break;
             case 'l': myAnalysis.myUserVariables.log=true; break;
             case '?': helpFile(); return 1;
@@ -116,7 +116,7 @@ void helpFile()
     printf( "   -o, --output <prefix>               Output prefix [MetaMinimac.Output] \n");
     printf( "   -f, --format <string>               Comma-separated FORMAT tags [GT,DS,HDS]\n");
 //    printf( "   -v, --vcfBuffer <int>               Maximum number of samples processed at a time [200] \n");
-    printf( "   -c, --phasingCheck                  If ON, program will check phasing consistency before analysis.\n");
+    printf( "   -p, --skipPhasingCheck              If OFF (by default and highly recommended), program will check phasing consistency before analysis.\n");
     printf( "   -s, --skipInfo                      If ON, the INFO fields are removed from the output file.\n");
     printf( "   -n, --nobgzip                       If ON, output files will NOT be bgzipped.\n");
     printf( "   -w, --weight                        If ON, weights will be saved in $prefix.metaWeights(.gz)\n");
