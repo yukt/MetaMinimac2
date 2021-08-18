@@ -120,7 +120,6 @@ public:
     String PerformFinalAnalysis();
     bool InitiateWeightsFromRecord();
     void ReadCurrentWeights();
-    void StoreWeightsFromCurrentRecord(int i, char* str);
     void CopyCurrentWeightsToPreviousWeights();
     void UpdateWeights();
     void AppendtoMainWeightsFile();
@@ -139,6 +138,8 @@ public:
     void PrintDiploidDosage(float &x, float &y);
     void PrintHaploidDosage(float &x);
     void PrintWeightForHaplotype(int haploId);
+    void PrintDiploidWeightForSample(int sampleId);
+    void PrintHaploidWeightForSample(int sampleId);
     void summary()
     {
         for (int i=0; i<NoInPrefix; i++)

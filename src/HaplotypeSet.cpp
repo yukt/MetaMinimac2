@@ -291,7 +291,7 @@ void HaplotypeSet::LoadLooVariant(VcfRecordGenotype &ThisGenotype,int loonumRead
         if(SampleNoHaplotypes[i]==2)
         {
             char *end_str;
-            char *pch = strtok_r((char *) temp.c_str(), "|", &end_str);
+            char *pch = strtok_r((char *) temp.c_str(), ",|", &end_str);
             LooDosage[2*NoHapsLoad][loonumReadRecords] = atof(pch);
             pch = strtok_r(NULL, "\t", &end_str);
             LooDosage[2*NoHapsLoad + 1][loonumReadRecords] = atof(pch);

@@ -575,7 +575,11 @@ bool MetaMinimac::OpenStreamOutputWeightFiles()
     ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
     ifprintf(metaWeight,"##source=MetaMinimac2.v%s\n",VERSION);
     ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
-    ifprintf(metaWeight,"##FORMAT=<ID=WT,Number=1,Type=String,Description=\"Estimated Meta Weights : [ weights for haplotype 1 ] | [ weights for haplotype 2 ]\">\n");
+    for (int i=0; i<NoInPrefix; i++)
+    {
+        ifprintf(metaWeight,"##FORMAT=<ID=WT%d,Number=2,Type=Float,Description=\"Estimated Meta Weights on Study %d: [ weight on haplotype 1 , weight on haplotype 2 ]\">\n", i+1, i+1);
+    }
+
     ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
 
     ifprintf(metaWeight,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
@@ -948,41 +952,31 @@ void MetaMinimac::ReadCurrentWeights()
     if(InputWeightStream->readRecord(*CurrentRecordFromWeight))
     {
         VcfRecordGenotype & ThisGenotype = CurrentRecordFromWeight->getGenotypeInfo();
+
         for (int i=0; i<NoSamples; i++)
         {
-            string temp=*ThisGenotype.getString("WT",i);
-            char *end_str;
-
-            if(InputData[0].SampleNoHaplotypes[i] == 2)
+            for (int j=0; j<NoInPrefix; j++)
             {
-                char *pch = strtok_r((char *) temp.c_str(), "|", &end_str);
-                StoreWeightsFromCurrentRecord(2*i, pch);
-                pch = strtok_r(NULL, "|", &end_str);
-                StoreWeightsFromCurrentRecord(2*i+1, pch);
-            }
-            else
-            {
-                StoreWeightsFromCurrentRecord(2*i, &temp[0u]);
+                stringstream ss;
+                ss << "WT" << j+1;
+                string temp = *ThisGenotype.getString(ss.str(), i);
+                if(InputData[0].SampleNoHaplotypes[i]==2)
+                {
+                    char *end_str;
+                    char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
+                    WeightsFromCurrentRecord[2*i][j] = atof(pch);
+                    pch = strtok_r(NULL, ",", &end_str);
+                    WeightsFromCurrentRecord[2*i+1][j] = atof(pch);
+                }
+                else
+                {
+                    WeightsFromCurrentRecord[2*i][j] = atof(temp.c_str());
+                }
             }
         }
     }
-
 }
 
-void MetaMinimac::StoreWeightsFromCurrentRecord(int i, char* str)
-{
-
-    char *end_str;
-    char *pch = strtok_r(str, ",", &end_str);
-    vector<float> &ThisWeight = WeightsFromCurrentRecord[i];
-    ThisWeight[0] = atof(pch);
-
-    for (int i=1; i<NoInPrefix; i++)
-    {
-        pch = strtok_r(NULL, ",", &end_str);
-        ThisWeight[i] = atof(pch);
-    }
-}
 void MetaMinimac::CopyCurrentWeightsToPreviousWeights()
 {
     for (int i=0; i<2*NoSamples; i++)
@@ -1177,12 +1171,16 @@ void MetaMinimac::PrintMetaWeight()
         WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\t");
         if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
         {
-            PrintWeightForHaplotype(2*id);
-            WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"|");
-            PrintWeightForHaplotype(2*id+1);
+            PrintDiploidWeightForSample(id);
+//            PrintWeightForHaplotype(2*id);
+//            WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"|");
+//            PrintWeightForHaplotype(2*id+1);
         }
         else
-            PrintWeightForHaplotype(2*id);
+        {
+            PrintHaploidWeightForSample(id);
+//            PrintWeightForHaplotype(2*id);
+        }
     }
 
     WeightPrintStringPointerLength+= sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\n");
@@ -1373,16 +1371,44 @@ void MetaMinimac::PrintHaploidDosage(float &x)
 }
 
 
-void MetaMinimac::PrintWeightForHaplotype(int haploId)
+//void MetaMinimac::PrintWeightForHaplotype(int haploId)
+//{
+//    vector<double>& ThisCurrWeights = (*CurrWeights)[haploId];
+//    double WeightSum = 0.0;
+//    for(int i=0; i<NoInPrefix; i++)
+//        WeightSum += ThisCurrWeights[i];
+//    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisCurrWeights[0]/WeightSum);
+//    for(int i=1;i<NoInPrefix;i++)
+//        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisCurrWeights[i]/WeightSum);
+//}
+
+void MetaMinimac::PrintDiploidWeightForSample(int sampleId)
 {
-    vector<double>& ThisCurrWeights = (*CurrWeights)[haploId];
+    vector<double>& WeightsHap1 = (*CurrWeights)[2*sampleId];
+    vector<double>& WeightsHap2 = (*CurrWeights)[2*sampleId+1];
+    double WeightSumHap1 = 0.0, WeightSumHap2 = 0.0;
+    for(int i=0; i<NoInPrefix; i++)
+    {
+        WeightSumHap1 += WeightsHap1[i];
+        WeightSumHap2 += WeightsHap2[i];
+    }
+    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f,%0.4f", WeightsHap1[0]/WeightSumHap1, WeightsHap2[0]/WeightSumHap2);
+    for(int i=1;i<NoInPrefix;i++)
+        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":%0.4f,%0.4f", WeightsHap1[i]/WeightSumHap1, WeightsHap2[i]/WeightSumHap2);
+}
+
+void MetaMinimac::PrintHaploidWeightForSample(int sampleId)
+{
+    vector<double>& ThisCurrWeights = (*CurrWeights)[2*sampleId];
     double WeightSum = 0.0;
     for(int i=0; i<NoInPrefix; i++)
         WeightSum += ThisCurrWeights[i];
     WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisCurrWeights[0]/WeightSum);
     for(int i=1;i<NoInPrefix;i++)
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisCurrWeights[i]/WeightSum);
+        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":%0.4f", ThisCurrWeights[i]/WeightSum);
+
 }
+
 
 
 void MetaMinimac::PrintVariantInfo()
@@ -1435,9 +1461,13 @@ void MetaMinimac::PrintWeightVariantInfo()
 {
     // "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT"
     variant& tempVariant = CommonTypedVariantList[NoCommonVariantsProcessed];
-    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s\t.\tPASS\t.\tWT",
+    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s\t.\tPASS\t.\tWT1",
                                             tempVariant.chr.c_str(), tempVariant.bp, tempVariant.name.c_str(),
                                             tempVariant.refAlleleString.c_str(), tempVariant.altAlleleString.c_str());
+    for(int i=1; i<NoInPrefix; i++)
+    {
+        WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":WT%d", i+1);
+    }
     if(WeightPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
     {
         ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
