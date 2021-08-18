@@ -53,6 +53,4 @@ When the phasing step is performed by imputation server (e.g. [Michigan Imputati
 ## Output Files
 The meta-imputed result will be saved in `[MetaMinimac.Output.Prefix].metaDose.vcf.gz`.
 
-When `--weight` is ON, the weights for meta-imputation will be saved in `[MetaMinimac.Output.Prefix].metaWeights.gz`. The weight file is also in VCF format, which is good for individual filtering by [vcftools](https://vcftools.github.io) or [bcftools](http://samtools.github.io/bcftools/bcftools.html). It contains one special format `WT` only in the genotype fields, and the values are in the format as follows:
-
-`[weight on PanelA hap1], [weight on PanelB hap1] | [weight on PanelA hap2], [weight on PanelB hap2]`
+When `--weight` is ON, the weights for meta-imputation will be saved in `[MetaMinimac.Output.Prefix].metaWeights.gz`. The weight file is also in VCF format, which is good for individual filtering by [vcftools](https://vcftools.github.io) or [bcftools](http://samtools.github.io/bcftools/bcftools.html). In the format field, `WT1` stands for the weight on reference panel 1 (which is related to input files with prefix1), `WT2` stands for the weight on reference panel 2, etc.
