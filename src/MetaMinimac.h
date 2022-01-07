@@ -4,6 +4,8 @@
 #include "MyVariables.h"
 #include "HaplotypeSet.h"
 
+#include <savvy/reader.hpp>
+
 using namespace std;
 
 void logitTransform(vector<double> &From,vector<double> &To);
@@ -22,8 +24,8 @@ public:
     int NoVariants, NoCommonTypedVariants;
 
     // Variables for input dosage file stream and records
-    vector<VcfFileReader*> InputDosageStream;
-    vector<VcfRecord*> CurrentRecordFromStudy;
+    vector<savvy::reader*> InputDosageStream;
+    vector<savvy::variant*> CurrentRecordFromStudy;
     vector<int> StudiesHasVariant;
     int CurrentFirstVariantBp;
     int NoStudiesHasVariant;
@@ -31,8 +33,8 @@ public:
     vector<HaplotypeSet> InputData;
 
     // Variables for input weight file stream and records
-    VcfFileReader* InputWeightStream;
-    VcfRecord* CurrentRecordFromWeight;
+    savvy::reader* InputWeightStream;
+    savvy::variant* CurrentRecordFromWeight;
     vector<vector<float>> WeightsFromCurrentRecord, WeightsFromPreviousRecord;
 
     // Process Part of Samples each time
@@ -98,7 +100,7 @@ public:
     void FindCommonGenotypedVariants();
     bool CheckPhasingConsistency();
     void FindCurrentMinimumPosition();
-    int IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2);
+    int IsVariantEqual(savvy::variant &Rec1, savvy::variant &Rec2);
     void UpdateCurrentRecords();
 
     void LoadLooDosage();

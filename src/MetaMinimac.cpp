@@ -150,12 +150,9 @@ void MetaMinimac::OpenStreamInputDosageFiles()
     StudiesHasVariant.resize(NoInPrefix);
     for(int i=0; i<NoInPrefix;i++)
     {
-        VcfHeader header;
-        InputDosageStream[i] = new VcfFileReader();
-        CurrentRecordFromStudy[i]= new VcfRecord();
-        InputDosageStream[i]->open( InputData[i].DoseFileName.c_str(), header);
-        InputDosageStream[i]->setSiteOnly(false);
-        InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i]);
+        InputDosageStream[i] = new savvy::reader(InputData[i].DoseFileName);
+        CurrentRecordFromStudy[i]= new savvy::variant("", MAXBP, "", {""});
+        InputDosageStream[i]->read(*CurrentRecordFromStudy[i]);
         InputData[i].noMarkers = 0;
     }
 }
@@ -170,22 +167,16 @@ void MetaMinimac::OpenStreamInputEmpiricalDoseFiles()
 
     for(int i=0; i<NoInPrefix;i++)
     {
-        VcfHeader header;
-        InputDosageStream[i] = new VcfFileReader();
-        CurrentRecordFromStudy[i]= new VcfRecord();
-        InputDosageStream[i]->open( InputData[i].EmpDoseFileName.c_str(), header);
-        InputDosageStream[i]->setSiteOnly(false);
+        InputDosageStream[i] = new savvy::reader(InputData[i].EmpDoseFileName);
+        CurrentRecordFromStudy[i]= new savvy::variant("", MAXBP, "", {""});
     }
 }
 
 
 void MetaMinimac::OpenStreamInputWeightFiles()
 {
-    VcfHeader header;
-    InputWeightStream = new VcfFileReader();
-    CurrentRecordFromWeight = new VcfRecord();
-    InputWeightStream->open(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), header);
-    InputWeightStream->setSiteOnly(false);
+    InputWeightStream = new savvy::reader(std::string(myUserVariables.outfile.c_str()) + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""));
+    CurrentRecordFromWeight = new savvy::variant();
 }
 
 
@@ -356,15 +347,15 @@ bool MetaMinimac::CheckPhasingConsistency()
 
         for(int i=0; i<NoInPrefix; i++)
         {
-            while(InputDosageStream[i]->readRecord(*CurrentRecordFromStudy[i])) {
-                chrom = CurrentRecordFromStudy[i]->getChromStr();
-                bp = CurrentRecordFromStudy[i]->get1BasedPosition();
-                altAllele = CurrentRecordFromStudy[i]->getAltStr();
-                refAllele = CurrentRecordFromStudy[i]->getRefStr();
+            while(InputDosageStream[i]->read(*CurrentRecordFromStudy[i])) {
+                chrom = CurrentRecordFromStudy[i]->chrom();
+                bp = CurrentRecordFromStudy[i]->pos();
+                altAllele = CurrentRecordFromStudy[i]->alts().empty() ? "" : CurrentRecordFromStudy[i]->alts()[0];
+                refAllele = CurrentRecordFromStudy[i]->ref();
                 name = chrom + ":" + to_string(bp) + ":" + refAllele + ":" + altAllele;
                 if (name == common_variant)
                 {
-                    InputData[i].LoadCurrentGT(CurrentRecordFromStudy[i]->getGenotypeInfo());
+                    InputData[i].LoadCurrentGT(*CurrentRecordFromStudy[i]);
                     NoStudiesHasVariant++;
                     break;
                 }
@@ -420,8 +411,8 @@ bool MetaMinimac::CheckPhasingConsistency()
 void MetaMinimac::FindCurrentMinimumPosition() {
 
     if (NoInPrefix == 2) {
-        int a = CurrentRecordFromStudy[0]->get1BasedPosition();
-        int b = CurrentRecordFromStudy[1]->get1BasedPosition();
+        int a = CurrentRecordFromStudy[0]->pos();
+        int b = CurrentRecordFromStudy[1]->pos();
         CurrentFirstVariantBp = a;
         NoStudiesHasVariant = 1;
         StudiesHasVariant[0] = 0;
@@ -441,19 +432,19 @@ void MetaMinimac::FindCurrentMinimumPosition() {
     else
     {
 
-        CurrentFirstVariantBp=CurrentRecordFromStudy[0]->get1BasedPosition();
+        CurrentFirstVariantBp=CurrentRecordFromStudy[0]->pos();
 
         for(int i=1;i<NoInPrefix;i++)
-            if(CurrentRecordFromStudy[i]->get1BasedPosition() < CurrentFirstVariantBp)
-                CurrentFirstVariantBp=CurrentRecordFromStudy[i]->get1BasedPosition();
+            if(CurrentRecordFromStudy[i]->pos() < CurrentFirstVariantBp)
+                CurrentFirstVariantBp=CurrentRecordFromStudy[i]->pos();
 
         NoStudiesHasVariant=0;
-        VcfRecord *minRecord;
-        minRecord = new VcfRecord();
+        savvy::variant *minRecord = nullptr;
+
         int Begin=0;
         for(int i=0;i<NoInPrefix;i++)
         {
-            if(CurrentRecordFromStudy[i]->get1BasedPosition() == CurrentFirstVariantBp)
+            if(CurrentRecordFromStudy[i]->pos() == CurrentFirstVariantBp)
             {
                 if(Begin==0)
                 {
@@ -472,11 +463,11 @@ void MetaMinimac::FindCurrentMinimumPosition() {
     }
 }
 
-int MetaMinimac::IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2)
+int MetaMinimac::IsVariantEqual(savvy::variant &Rec1, savvy::variant &Rec2)
 {
-    if(strcmp(Rec1.getRefStr(),Rec2.getRefStr())!=0)
+    if(Rec1.ref() != Rec2.ref())
         return 0;
-    if(strcmp(Rec1.getAltStr(),Rec2.getAltStr())!=0)
+    if(Rec1.alts() != Rec2.alts())
         return 0;
     return 1;
 }
@@ -488,8 +479,8 @@ void MetaMinimac::UpdateCurrentRecords()
     for(int i=0; i<NoStudiesHasVariant;i++)
     {
         int index = StudiesHasVariant[i];
-        if(!InputDosageStream[index]->readRecord(*CurrentRecordFromStudy[index]))
-            CurrentRecordFromStudy[index]->set1BasedPosition(MAXBP);
+        if(!InputDosageStream[index]->read(*CurrentRecordFromStudy[index]))
+            *CurrentRecordFromStudy[index] = savvy::site_info("", MAXBP, "", {""});
     }
 }
 
@@ -936,7 +927,7 @@ bool MetaMinimac::InitiateWeightsFromRecord()
 
     ReadCurrentWeights();
 
-    int bp = CurrentRecordFromWeight->get1BasedPosition();
+    int bp = CurrentRecordFromWeight->pos();
     if (bp != CurrBp)
     {
         return false;
@@ -949,30 +940,15 @@ bool MetaMinimac::InitiateWeightsFromRecord()
 
 void MetaMinimac::ReadCurrentWeights()
 {
-    if(InputWeightStream->readRecord(*CurrentRecordFromWeight))
+    if(InputWeightStream->read(*CurrentRecordFromWeight))
     {
-        VcfRecordGenotype & ThisGenotype = CurrentRecordFromWeight->getGenotypeInfo();
-
-        for (int i=0; i<NoSamples; i++)
+        std::vector<float> wt_vec;
+        for (std::size_t i = 0; i < NoInPrefix; ++i)
         {
-            for (int j=0; j<NoInPrefix; j++)
-            {
-                stringstream ss;
-                ss << "WT" << j+1;
-                string temp = *ThisGenotype.getString(ss.str(), i);
-                if(InputData[0].SampleNoHaplotypes[i]==2)
-                {
-                    char *end_str;
-                    char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
-                    WeightsFromCurrentRecord[2*i][j] = atof(pch);
-                    pch = strtok_r(NULL, ",", &end_str);
-                    WeightsFromCurrentRecord[2*i+1][j] = atof(pch);
-                }
-                else
-                {
-                    WeightsFromCurrentRecord[2*i][j] = atof(temp.c_str());
-                }
-            }
+            CurrentRecordFromWeight->get_format("WT" + std::to_string(i + 1), wt_vec);
+            assert(WeightsFromCurrentRecord.size() == wt_vec.size());
+            for (std::size_t j = 0; j < wt_vec.size(); ++j)
+                WeightsFromCurrentRecord[j][i] = wt_vec[j];
         }
     }
 }
@@ -1012,12 +988,12 @@ void logitTransform(vector<double> &From,vector<double> &To)
 
 void MetaMinimac::ReadCurrentDosageData()
 {
-    VcfRecord* tempRecord = CurrentRecordFromStudy[StudiesHasVariant[0]];
+    savvy::variant* tempRecord = CurrentRecordFromStudy[StudiesHasVariant[0]];
     variant tempVariant;
-    tempVariant.chr  = tempRecord->getChromStr();
-    tempVariant.bp   = tempRecord->get1BasedPosition();
-    tempVariant.refAlleleString = tempRecord->getRefStr();
-    tempVariant.altAlleleString = tempRecord->getAltStr();
+    tempVariant.chr  = tempRecord->chrom();
+    tempVariant.bp   = tempRecord->pos();
+    tempVariant.refAlleleString = tempRecord->ref();
+    tempVariant.altAlleleString = tempRecord->alts().empty() ? "" : tempRecord->alts()[0];
     tempVariant.name = tempVariant.chr+":"+to_string(tempVariant.bp)+":"+ tempVariant.refAlleleString+":"+tempVariant.altAlleleString;
 
     int VariantId = 0;
@@ -1048,7 +1024,7 @@ void MetaMinimac::ReadCurrentDosageData()
     {
         int index = StudiesHasVariant[j];
 //        InputData[index].LoadData(VariantId,CurrentRecordFromStudy[index]->getGenotypeInfo(), StartSamId, EndSamId);
-        InputData[index].LoadData(VariantId,CurrentRecordFromStudy[index]->getGenotypeInfo(), 0, NoSamples);
+        InputData[index].LoadData(VariantId,*CurrentRecordFromStudy[index]);
     }
 }
 

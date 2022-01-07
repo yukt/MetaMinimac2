@@ -1,6 +1,8 @@
 #include "HaplotypeSet.h"
 #include "assert.h"
 
+#include <savvy/reader.hpp>
+
 bool HaplotypeSet::LoadSampleNames(string prefix)
 {
     InfilePrefix.Copy(prefix.c_str());
@@ -21,17 +23,16 @@ bool HaplotypeSet::LoadSampleNames(string prefix)
 
 bool HaplotypeSet::GetSampleInformationfromHDS(string filename)
 {
-    VcfFileReader inFile;
-    VcfHeader header;
-    VcfRecord record;
+    savvy::reader inFile(filename);
+    savvy::variant record;
     individualName.clear();
 
-    if (!inFile.open(filename.c_str(), header))
+    if (!inFile)
     {
         cout << "\n Program could NOT open file : " << filename << endl<<endl;
         return false;
     }
-    numSamples = header.getNumSamples();
+    numSamples = inFile.samples().size();
     if(numSamples==0)
     {
         std::cout << "\n Number of Samples read from VCF File    : " << numSamples << endl;
@@ -40,50 +41,41 @@ bool HaplotypeSet::GetSampleInformationfromHDS(string filename)
         return false;
     }
     individualName.resize(numSamples);
-    CummulativeSampleNoHaplotypes.resize(numSamples);
-    SampleNoHaplotypes.resize(numSamples);
-
     for (int i = 0; i < numSamples; i++)
     {
-        individualName[i]=header.getSampleName(i);
+        individualName[i]=inFile.samples()[i];
     }
 
-    inFile.setSiteOnly(false);
-    inFile.readRecord(record);
+    if (!inFile.read(record))
+        return cout << "\nERROR: Program could NOT read record from file : " << filename << endl<<endl, false;
 
+    std::vector<float> hds_vec;
+    record.get_format("HDS", hds_vec);
 
-    VcfRecordGenotype &ThisGenotype=record.getGenotypeInfo();
+    std::size_t max_ploidy = hds_vec.size() / numSamples;
+    CummulativeSampleNoHaplotypes.resize(numSamples);
+    SampleNoHaplotypes.resize(numSamples, max_ploidy);
 
-    int tempHapCount=0;
-    for (int i = 0; i<(numSamples); i++)
+    if (max_ploidy == 2)
     {
-        string temp=*ThisGenotype.getString("HDS",i);
-        char *end_str;
-
-        char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
-        if(pch==NULL)
+        for (std::size_t i = 0; i < numSamples; ++i)
         {
-            std::cout << "\n ERROR !!! \n Empty Value for Individual : " << individualName[i] << " at First Marker  " << endl;
-            std::cout << " Most probably a corrupted VCF file. Please check input VCF file !!! " << endl;
-            cout << "\n Program Exiting ... \n\n";
-            return false;
+            if (savvy::typed_value::is_end_of_vector(hds_vec[i * max_ploidy + 1]))
+                SampleNoHaplotypes[i] = 1;
         }
-        char *pch1 = strtok_r(NULL, "\t", &end_str);
-
-        if(pch1==NULL)
-        {
-            SampleNoHaplotypes[i]=1;
-        }
-        else
-        {
-            SampleNoHaplotypes[i]=2;
-        }
-
-        CummulativeSampleNoHaplotypes[i]=tempHapCount;
-        tempHapCount+=SampleNoHaplotypes[i];
+    }
+    else if (max_ploidy != 1)
+    {
+        cout << "\nERROR: Only haploid and diploid are supported (detected " << max_ploidy << ") : " << filename << endl<<endl;
+        return false;
     }
 
-    inFile.close();
+    numActualHaps= 0;
+    for (std::size_t i = 0; i < SampleNoHaplotypes.size(); ++i)
+    {
+        CummulativeSampleNoHaplotypes[i] = numActualHaps;
+        numActualHaps += SampleNoHaplotypes[i];
+    }
 
     return true;
 
@@ -92,17 +84,18 @@ bool HaplotypeSet::GetSampleInformationfromHDS(string filename)
 
 bool HaplotypeSet::GetSampleInformation(string filename)
 {
-    VcfFileReader inFile;
-    VcfHeader header;
-    VcfRecord record;
+    savvy::reader inFile(filename);
+    savvy::variant record;
     individualName.clear();
+    SampleNoHaplotypes.clear();
+    CummulativeSampleNoHaplotypes.clear();
 
-    if (!inFile.open(filename.c_str(), header))
+    if (!inFile)
     {
         cout << "\n Program could NOT open file : " << filename << endl<<endl;
         return false;
     }
-    numSamples = header.getNumSamples();
+    numSamples = inFile.samples().size();
     if(numSamples==0)
     {
         std::cout << "\n Number of Samples read from VCF File    : " << numSamples << endl;
@@ -111,35 +104,42 @@ bool HaplotypeSet::GetSampleInformation(string filename)
         return false;
     }
     individualName.resize(numSamples);
-    CummulativeSampleNoHaplotypes.resize(numSamples);
-    SampleNoHaplotypes.resize(numSamples);
 
     for (int i = 0; i < numSamples; i++)
     {
-        individualName[i]=header.getSampleName(i);
+        individualName[i]=inFile.samples()[i];
     }
 
-    inFile.setSiteOnly(false);
-    inFile.readRecord(record);
-    int tempHapCount=0;
-    for (int i = 0; i<(numSamples); i++)
+    if (!inFile.read(record))
+        return cout << "\nERROR: Program could NOT read record from file : " << filename << endl<<endl, false;
+
+    std::vector<std::int8_t> gt_vec;
+    record.get_format("GT", gt_vec);
+
+    std::size_t max_ploidy = gt_vec.size() / numSamples;
+    CummulativeSampleNoHaplotypes.resize(numSamples);
+    SampleNoHaplotypes.resize(numSamples, max_ploidy);
+
+    if (max_ploidy == 2)
     {
-        if(record.getNumGTs(i)==0)
+        for (std::size_t i = 0; i < numSamples; ++i)
         {
-            std::cout << "\n ERROR !!! \n Empty Value for Individual : " << individualName[i] << " at First Marker  " << endl;
-            std::cout << " Most probably a corrupted VCF file. Please check input VCF file !!! " << endl;
-            cout << "\n Program Exiting ... \n\n";
-            return false;
-        }
-        else
-        {
-            CummulativeSampleNoHaplotypes[i]=tempHapCount;
-            SampleNoHaplotypes[i]=(record.getNumGTs(i));
-            tempHapCount+=SampleNoHaplotypes[i];
+            if (savvy::typed_value::is_end_of_vector(gt_vec[i * max_ploidy + 1]))
+                SampleNoHaplotypes[i] = 1;
         }
     }
-    inFile.close();
-    numActualHaps=tempHapCount;
+    else if (max_ploidy != 1)
+    {
+        cout << "\nERROR: Only haploid and diploid are supported (detected " << max_ploidy << ") : " << filename << endl<<endl;
+        return false;
+    }
+
+    numActualHaps = 0;
+    for (std::size_t i = 0; i < SampleNoHaplotypes.size(); ++i)
+    {
+        CummulativeSampleNoHaplotypes[i] = numActualHaps;
+        numActualHaps += SampleNoHaplotypes[i];
+    }
 
     return true;
 
@@ -177,32 +177,28 @@ bool HaplotypeSet::CheckSampleConsistency(int tempNoSamples,
 
 void HaplotypeSet::LoadEmpVariantList()
 {
-    VcfFileReader inFile;
-    VcfHeader header;
-    VcfRecord record;
-    inFile.open(EmpDoseFileName.c_str(), header);
-    inFile.setSiteOnly(true);
+    savvy::reader inFile(EmpDoseFileName);
+    savvy::variant record;
     TypedVariantList.clear();
 
     int numReadRecords=0;
 
-    while (inFile.readRecord(record))
+    while (inFile.read(record))
     {
         ++numReadRecords;
         if(numReadRecords==1)
-            finChromosome = record.getChromStr();
+            finChromosome = record.chrom();
 
         variant tempVariant;
-        tempVariant.chr=record.getChromStr();
-        tempVariant.bp=record.get1BasedPosition();
-        tempVariant.altAlleleString = record.getAltStr();
-        tempVariant.refAlleleString = record.getRefStr();
+        tempVariant.chr=record.chrom();
+        tempVariant.bp=record.pos();
+        tempVariant.altAlleleString = record.alts().empty() ? "" : record.alts()[0];
+        tempVariant.refAlleleString = record.ref();
         tempVariant.name=tempVariant.chr+":"+to_string(tempVariant.bp)+":"+ tempVariant.refAlleleString+":"+tempVariant.altAlleleString;
         TypedVariantList.push_back(tempVariant);
     }
 
     noTypedMarkers=TypedVariantList.size();
-    inFile.close();
 }
 
 void HaplotypeSet::ClearEmpVariantList()
@@ -213,12 +209,8 @@ void HaplotypeSet::ClearEmpVariantList()
 void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommonGenoList, int StartSamId, int EndSamId)
 
 {
-    VcfFileReader inFile;
-    VcfHeader header;
-    VcfRecord record;
-    VcfRecordGenotype *recordGeno;
-    inFile.open(EmpDoseFileName.c_str(), header);
-    inFile.setSiteOnly(false);
+    savvy::reader inFile(EmpDoseFileName);
+    savvy::variant record;
     int bp,numReadRecords=0;
     int numHapsInBatch = 2*(EndSamId - StartSamId);
     string cno,name,refAllele,altAllele,prevID="",currID;
@@ -234,19 +226,22 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
     }
     int SortIndex = 0;
     int numComRecord = 0;
-    while (inFile.readRecord(record))
+    std::vector<std::int8_t> gt_vec;
+    std::vector<float> lds_vec;
+    while (inFile.read(record))
     {
         ++numReadRecords;
-        cno=record.getChromStr();
-        bp=record.get1BasedPosition();
-        altAllele = record.getAltStr();
-        refAllele = record.getRefStr();
+        cno=record.chrom();
+        bp=record.pos();
+        altAllele = record.alts().empty() ? "" : record.alts()[0];
+        refAllele = record.ref();
         name = cno+":"+to_string(bp)+":"+refAllele+":"+altAllele;
 
         if(SortedCommonGenoList[SortIndex]==name)
         {
-            recordGeno=&record.getGenotypeInfo();
-            LoadLooVariant(*recordGeno, numComRecord, StartSamId, EndSamId);
+            record.get_format("GT", gt_vec);
+            record.get_format("LDS", lds_vec);
+            LoadLooVariant(gt_vec, lds_vec, numComRecord, StartSamId, EndSamId);
             numComRecord++;
             SortIndex++;
         }
@@ -256,63 +251,25 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
         cout<<" ERROR CODE 2819: Please contact author with this code to help with bug fixing ..."<<endl;
         abort();
     }
-
-    inFile.close();
 }
 
-void HaplotypeSet::LoadCurrentGT(VcfRecordGenotype & ThisGenotype)
+void HaplotypeSet::LoadCurrentGT(savvy::variant & rec)
 {
-    CurrentHapDosage.clear();
-    CurrentHapDosage.resize(2*numSamples);
-    for (int i=0; i<numSamples; i++)
-    {
-        string temp = *ThisGenotype.getString("GT", i);
-        if(SampleNoHaplotypes[i]==2)
-        {
-            char *end_str1;
-            char *pch1 = strtok_r((char *) temp.c_str(), "|", &end_str1);
-            CurrentHapDosage[2*i] = atof(pch1);
-            pch1 = strtok_r(NULL, "\t", &end_str1);
-            CurrentHapDosage[2*i+1] = atof(pch1);
-        }
-        else
-        {
-            CurrentHapDosage[2*i] = atof(temp.c_str());
-        }
-    }
+    rec.get_format("GT", CurrentHapDosage);
 }
 
-void HaplotypeSet::LoadLooVariant(VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId)
+void HaplotypeSet::LoadLooVariant(const std::vector<std::int8_t>& gt, const std::vector<float>& lds, int loonumReadRecords, int StartSamId, int EndSamId)
 {
-    int NoHapsLoad = 0;
-    for (int i = StartSamId; i<EndSamId; i++)
-    {
-        string temp=*ThisGenotype.getString("LDS",i);
-        if(SampleNoHaplotypes[i]==2)
-        {
-            char *end_str;
-            char *pch = strtok_r((char *) temp.c_str(), ",|", &end_str);
-            LooDosage[2*NoHapsLoad][loonumReadRecords] = atof(pch);
-            pch = strtok_r(NULL, "\t", &end_str);
-            LooDosage[2*NoHapsLoad + 1][loonumReadRecords] = atof(pch);
+    assert(gt.size() == numActualHaps);
+    assert(gt.size() == lds.size());
+    int ploidy = numActualHaps / numSamples;
+    int start_i = StartSamId * ploidy;
+    int end_i = EndSamId * ploidy;
+    for (int i = start_i; i < end_i; ++i)
+        TypedGT[i - start_i][loonumReadRecords] = gt[i];
 
-
-            temp = *ThisGenotype.getString("GT", i);
-            char *end_str1;
-            char *pch1 = strtok_r((char *) temp.c_str(), "|", &end_str1);
-            TypedGT[2*NoHapsLoad][loonumReadRecords] = atof(pch1);
-            pch1 = strtok_r(NULL, "\t", &end_str1);
-            TypedGT[2*NoHapsLoad+1][loonumReadRecords] = atof(pch1);
-        }
-        else
-        {
-            LooDosage[2*NoHapsLoad][loonumReadRecords] = atof(temp.c_str());
-            temp = *ThisGenotype.getString("GT", i);
-            TypedGT[2*NoHapsLoad][loonumReadRecords] = atof(temp.c_str());
-
-        }
-        NoHapsLoad++;
-    }
+    for (int i = StartSamId * ploidy; i < end_i; ++i)
+        LooDosage[i - start_i][loonumReadRecords] = lds[i];
 }
 
 bool HaplotypeSet::doesExistFile(string filename)
@@ -345,35 +302,11 @@ bool HaplotypeSet::CheckSuffixFile(string prefix, const char* suffix, string &Fi
     return true;
 }
 
-void HaplotypeSet::LoadData(int VariantId, VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId)
+void HaplotypeSet::LoadData(int VariantId, savvy::variant &rec)
 {
-    VariantId2Buffer[VariantId] = BufferNoVariants;
-
-    vector<float> tempHapDosage;
-    tempHapDosage.resize(2*(EndSamId-StartSamId), 0.0);
-
-    for (int i = StartSamId; i<EndSamId; i++)
-    {
-        string temp=*ThisGenotype.getString("HDS",i);
-        char *end_str;
-
-        if(SampleNoHaplotypes[i]==2) {
-            char *pch = strtok_r((char *) temp.c_str(), ",", &end_str);
-            tempHapDosage[2*(i-StartSamId)] = atof(pch);
-
-            pch = strtok_r(NULL, "\t", &end_str);
-            tempHapDosage[2*(i-StartSamId)+1] = atof(pch);
-        }
-        else
-        {
-            tempHapDosage[2*(i-StartSamId)] = atof(temp.c_str());
-        }
-
-    }
-
-    BufferHapDosage.push_back(tempHapDosage);
-    BufferNoVariants++;
-
+    BufferHapDosage.emplace_back();
+    rec.get_format("HDS", BufferHapDosage.back());
+    VariantId2Buffer[VariantId] = BufferNoVariants++;
 }
 
 void HaplotypeSet::GetData(int VariantId)
