@@ -9,6 +9,8 @@ class UserVariables
 {
 public:
     String inputFiles;
+    std::vector<std::string> empInputFiles;
+    std::vector<std::string> doseInputFiles;
     String outfile;
     String FileDelimiter;
     String formatString;
@@ -155,9 +157,17 @@ public:
             gzip=false;
 
 
-        if (inputFiles == "")
+        if (inputFiles == "" && empInputFiles.empty())
         {
             cout<< " Missing -i [--input], a required parameter.\n\n";
+            cout<< " Try -h [--help] for usage ...\n\n";
+            cout<< " Program Exiting ...\n\n";
+            return false;
+        }
+
+        if (!empInputFiles.empty() && empInputFiles.size() != doseInputFiles.size())
+        {
+            cout<< " Missing input files.\n\n";
             cout<< " Try -h [--help] for usage ...\n\n";
             cout<< " Program Exiting ...\n\n";
             return false;

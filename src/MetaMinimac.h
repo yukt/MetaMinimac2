@@ -14,7 +14,6 @@ class MetaMinimac
 {
 public:
     UserVariables myUserVariables;
-    vector<String> InPrefixList;
     int NoInPrefix;
     string finChromosome;
 

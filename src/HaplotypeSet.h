@@ -36,7 +36,6 @@ class HaplotypeSet
 public:
 
     // File Name Variables
-    String InfilePrefix;
     string DoseFileName;
     string EmpDoseFileName;
 
@@ -76,7 +75,7 @@ public:
     void        ClearEmpVariantList                     ();
     void        LoadCurrentGT                           (savvy::variant &ThisGenotype);
     void        LoadLooVariant                          (const std::vector<std::int8_t>& gt, const std::vector<float>& lds,int loonumReadRecords, int StartSamId, int EndSamId);
-    bool        LoadSampleNames                         (string prefix);
+    bool        LoadSampleNames                         (std::string empDoseFN, std::string doseFN);
     bool        doesExistFile                           (string filename);
 
     void        LoadData                                (int VariantId, savvy::variant &ThisGenotype);

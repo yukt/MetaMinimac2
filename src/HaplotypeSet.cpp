@@ -3,13 +3,15 @@
 
 #include <savvy/reader.hpp>
 
-bool HaplotypeSet::LoadSampleNames(string prefix)
+bool HaplotypeSet::LoadSampleNames(std::string empDoseFN, std::string doseFN)
 {
-    InfilePrefix.Copy(prefix.c_str());
-    if(!CheckSuffixFile(prefix,"dose", DoseFileName)) return false;
-    if(!CheckSuffixFile(prefix,"empiricalDose", EmpDoseFileName)) return false;
+    if(!doesExistFile(empDoseFN)) return false;
+    if(!doesExistFile(doseFN)) return false;
+    EmpDoseFileName = empDoseFN;
+    DoseFileName = doseFN;
 
-    GetSampleInformationfromHDS(DoseFileName);
+    if (!GetSampleInformationfromHDS(DoseFileName))
+        return false;
     int tempNoSamples=numSamples;
     vector<string> tempindividualName=individualName;
     vector<int> tempSampleNoHaplotypes=SampleNoHaplotypes;
@@ -50,7 +52,8 @@ bool HaplotypeSet::GetSampleInformationfromHDS(string filename)
         return cout << "\nERROR: Program could NOT read record from file : " << filename << endl<<endl, false;
 
     std::vector<float> hds_vec;
-    record.get_format("HDS", hds_vec);
+    if (!record.get_format("HDS", hds_vec))
+        return cout << "\nERROR: HDS FORMAT field not found in record from file : " << filename << endl<<endl, false;
 
     std::size_t max_ploidy = hds_vec.size() / numSamples;
     CummulativeSampleNoHaplotypes.resize(numSamples);
@@ -114,7 +117,8 @@ bool HaplotypeSet::GetSampleInformation(string filename)
         return cout << "\nERROR: Program could NOT read record from file : " << filename << endl<<endl, false;
 
     std::vector<std::int8_t> gt_vec;
-    record.get_format("GT", gt_vec);
+    if (!record.get_format("GT", gt_vec))
+        return cout << "\nERROR: GT FORMAT field not found in record from file : " << filename << endl<<endl, false;
 
     std::size_t max_ploidy = gt_vec.size() / numSamples;
     CummulativeSampleNoHaplotypes.resize(numSamples);
@@ -239,8 +243,11 @@ void HaplotypeSet::ReadBasedOnSortCommonGenotypeList(vector<string> &SortedCommo
 
         if(SortedCommonGenoList[SortIndex]==name)
         {
-            record.get_format("GT", gt_vec);
-            record.get_format("LDS", lds_vec);
+            if (!record.get_format("GT", gt_vec) || !record.get_format("LDS", lds_vec))
+            {
+                cout << " ERROR: GT or LDS missing from empirical dosage file (" << EmpDoseFileName << ")" <<endl;
+                abort();
+            }
             LoadLooVariant(gt_vec, lds_vec, numComRecord, StartSamId, EndSamId);
             numComRecord++;
             SortIndex++;

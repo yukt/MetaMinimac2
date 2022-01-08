@@ -65,30 +65,35 @@ String MetaMinimac::Analyze()
 bool MetaMinimac::ParseInputVCFFiles()
 {
 
-    InPrefixList.clear();
-    size_t pos = 0;
-    std::string delimiter(myUserVariables.FileDelimiter) ;
-    std::string token;
-    int Count=0;
-    string tempName=myUserVariables.inputFiles.c_str();
-    while ((pos = tempName.find(delimiter)) != std::string::npos)
+    if (myUserVariables.inputFiles.Length())
     {
-        token = tempName.substr(0, pos);
-        InPrefixList.push_back(token.c_str());
-        tempName.erase(0, pos + delimiter.length());
-        Count++;
+        size_t pos = 0;
+        std::string delimiter(myUserVariables.FileDelimiter) ;
+        std::string token;
+        int Count=0;
+        string tempName=myUserVariables.inputFiles.c_str();
+        while ((pos = tempName.find(delimiter)) != std::string::npos)
+        {
+            token = tempName.substr(0, pos);
+            myUserVariables.empInputFiles.emplace_back(token + ".empiricalDose.vcf.gz");
+            myUserVariables.doseInputFiles.emplace_back(token + ".dose.vcf.gz");
+            tempName.erase(0, pos + delimiter.length());
+            Count++;
+        }
+
+        myUserVariables.empInputFiles.emplace_back(tempName + ".empiricalDose.vcf.gz");
+        myUserVariables.doseInputFiles.emplace_back(tempName + ".dose.vcf.gz");
     }
-    InPrefixList.push_back(tempName.c_str());
 
 
-    NoInPrefix=(int)InPrefixList.size();
+    NoInPrefix = myUserVariables.empInputFiles.size();
     InputData.clear();
     InputData.resize(NoInPrefix);
 
     cout<<endl<<  " Number of Studies : "<<NoInPrefix<<endl;
     for(int i=0;i<NoInPrefix;i++)
     {
-        cout<<  " -- Study "<<i+1<<" Prefix : "<<InPrefixList[i]<<endl;
+        cout<<  " -- Study "<<i+1<<" Prefix : "<<myUserVariables.empInputFiles[i]<<endl;
     }
 
 
@@ -115,7 +120,7 @@ bool MetaMinimac::CheckSampleNameCompatibility()
     {
         // First, check if dose file and empiricalDose file exist
         // Second, check if sample names are consistent between dose file and empiricalDose file
-        if(!InputData[i].LoadSampleNames(InPrefixList[i].c_str()))
+        if(!InputData[i].LoadSampleNames(myUserVariables.empInputFiles[i], myUserVariables.doseInputFiles[i]))
             return false;
 
         // Check if sample names are consistent with InputData[0]

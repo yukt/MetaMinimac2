@@ -51,6 +51,22 @@ int main(int argc, char ** argv)
         return(-1);
     }
 
+    int remaining_arg_count = argc - optind;
+    if (remaining_arg_count % 2)
+    {
+        std::cout << "Error: both dosage and empirical dosage files must be passed as input for each reference panel" << std::endl;
+        return(-1);
+    }
+
+    if (remaining_arg_count)
+        myAnalysis.myUserVariables.inputFiles.Clear();
+
+    for (int i = 0; i < remaining_arg_count / 2; ++i)
+        myAnalysis.myUserVariables.empInputFiles.emplace_back(argv[optind + i]);
+
+    for (int i = remaining_arg_count / 2; i < remaining_arg_count; ++i)
+        myAnalysis.myUserVariables.doseInputFiles.emplace_back(argv[optind + i]);
+
     int start_time = time(0);
     myAnalysis.myUserVariables.CreateCommandLine(argc,argv);
 
@@ -109,10 +125,10 @@ void helpFile()
 {
     MetaMinimacVersion();
     printf( "\n About   : Combine GWAS data imputed against different panels  \n");
-    printf( " Usage   : MetaMinimac2 [options] \n");
+    printf( " Usage   : MetaMinimac2 [options] empirical_dose_files... dose_files...  \n");
     printf( "\n");
     printf( " Options :\n");
-    printf( "   -i, --input  <prefix1:prefix2 ...>  Colon-separated prefixes of input data to meta-impute.\n");
+    //printf( "   -i, --input  <prefix1:prefix2 ...>  Colon-separated prefixes of input data to meta-impute.\n");
     printf( "   -o, --output <prefix>               Output prefix [MetaMinimac.Output] \n");
     printf( "   -f, --format <string>               Comma-separated FORMAT tags [GT,DS,HDS]\n");
 //    printf( "   -v, --vcfBuffer <int>               Maximum number of samples processed at a time [200] \n");
