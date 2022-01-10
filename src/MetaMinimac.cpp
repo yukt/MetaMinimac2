@@ -207,53 +207,50 @@ void MetaMinimac::CloseStreamInputWeightFiles()
 
 bool MetaMinimac::OpenStreamOutputDosageFiles()
 {
-    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    VcfPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
-    VcfPrintStringPointerLength = 0;
-    if(vcfdosepartial==NULL)
+    std::time_t t = std::time(nullptr);
+    char datestr[11];
+    std::string filedate(datestr, std::strftime(datestr, sizeof(datestr), "%Y%m%d", std::localtime(&t)));
+    assert(filedate.size());
+
+    std::vector<std::pair<std::string, std::string>> headers = {
+        {"fileformat", "VCFv4.1"},
+        {"filedate", filedate},
+        {"source", std::string("MetaMinimac2.") + VERSION},
+        {"phasing", "full"},
+        {"contig", "<ID=" + finChromosome + ">"},
+        {"INFO","<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">"},
+        {"INFO","<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">"},
+        {"INFO","<ID=R2,Number=1,Type=Float,Description=\"Estimated Imputation Accuracy (R-square)\">"},
+        {"INFO","<ID=TRAINING,Number=0,Type=Flag,Description=\"Marker was used to train meta-imputation weights\">"}};
+
+    headers.reserve(8);
+
+    if(myUserVariables.infoDetails)
+    {
+        headers.emplace_back("INFO","<ID=NST,Number=1,Type=Integer,Description=\"Number of studies marker was found during meta-imputation\">");
+        for(int i=1; i<=NoInPrefix; i++)
+            headers.emplace_back("INFO","<ID=S" + std::to_string(i) + ",Number=0,Type=Flag,Description=\"Marker was present in Study " + std::to_string(i) + "\">");
+    }
+    if(myUserVariables.GT)
+        headers.emplace_back("FORMAT","<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    if(myUserVariables.DS)
+        headers.emplace_back("FORMAT","<ID=DS,Number=1,Type=Float,Description=\"Estimated Alternate Allele Dosage : [P(0/1)+2*P(1/1)]\">");
+    if(myUserVariables.HDS)
+        headers.emplace_back("FORMAT","<ID=HDS,Number=2,Type=Float,Description=\"Estimated Haploid Alternate Allele Dosage \">");
+    if(myUserVariables.GP)
+        headers.emplace_back("FORMAT","<ID=GP,Number=3,Type=Float,Description=\"Estimated Posterior Probabilities for Genotypes 0/0, 0/1 and 1/1 \">");
+    if(myUserVariables.SD)
+        headers.emplace_back("FORMAT","<ID=SD,Number=1,Type=Float,Description=\"Variance of Posterior Genotype Probabilities\">");
+
+    headers.emplace_back("metaMinimac_Command", myUserVariables.CommandLine.c_str());
+
+
+    metaDoseOut.reset(new savvy::writer(std::string(myUserVariables.outfile.c_str()) + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : ""), savvy::file::format::vcf, headers, InputData[0].individualName, myUserVariables.gzip ? 6 : 0));
+    if(!metaDoseOut->good())
     {
         cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
         return false;
     }
-    ifprintf(vcfdosepartial,"##fileformat=VCFv4.1\n");
-    time_t t = time(0);
-    struct tm * now = localtime( & t );
-    ifprintf(vcfdosepartial,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
-    ifprintf(vcfdosepartial,"##source=MetaMinimac2.v%s\n",VERSION);
-    ifprintf(vcfdosepartial,"##contig=<ID=%s>\n", finChromosome.c_str());
-    ifprintf(vcfdosepartial,"##INFO=<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
-    ifprintf(vcfdosepartial,"##INFO=<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">\n");
-    ifprintf(vcfdosepartial,"##INFO=<ID=R2,Number=1,Type=Float,Description=\"Estimated Imputation Accuracy (R-square)\">\n");
-    ifprintf(vcfdosepartial,"##INFO=<ID=TRAINING,Number=0,Type=Flag,Description=\"Marker was used to train meta-imputation weights\">\n");
-
-    if(myUserVariables.infoDetails)
-    {
-        ifprintf(vcfdosepartial,"##INFO=<ID=NST,Number=1,Type=Integer,Description=\"Number of studies marker was found during meta-imputation\">\n");
-        for(int i=0; i<NoInPrefix; i++)
-            ifprintf(vcfdosepartial,"##INFO=<ID=S%d,Number=0,Type=Flag,Description=\"Marker was present in Study %d\">\n",i+1,i+1);
-    }
-    if(myUserVariables.GT)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
-    if(myUserVariables.DS)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=DS,Number=1,Type=Float,Description=\"Estimated Alternate Allele Dosage : [P(0/1)+2*P(1/1)]\">\n");
-    if(myUserVariables.HDS)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=HDS,Number=2,Type=Float,Description=\"Estimated Haploid Alternate Allele Dosage \">\n");
-    if(myUserVariables.GP)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=GP,Number=3,Type=Float,Description=\"Estimated Posterior Probabilities for Genotypes 0/0, 0/1 and 1/1 \">\n");
-    if(myUserVariables.SD)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=SD,Number=1,Type=Float,Description=\"Variance of Posterior Genotype Probabilities\">\n");
-
-    ifprintf(vcfdosepartial,"##metaMinimac_Command=%s\n", myUserVariables.CommandLine.c_str());
-
-    ifprintf(vcfdosepartial,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
-
-    for(int Id=0;Id<InputData[0].numSamples;Id++)
-    {
-        ifprintf(vcfdosepartial,"\t%s",InputData[0].individualName[Id].c_str());
-    }
-    ifprintf(vcfdosepartial,"\n");
-
-    ifclose(vcfdosepartial);
 
     return true;
 }
@@ -863,9 +860,6 @@ String MetaMinimac::PerformFinalAnalysis()
     OpenStreamInputDosageFiles();
     OpenStreamInputWeightFiles();
 
-    vcfdosepartial = ifopen(myUserVariables.outfile + ".metaDose.vcf"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    VcfPrintStringPointerLength=0;
-
     NoVariants = 0;
     NoCommonVariantsProcessed = 0;
     int NoRecordProcessed = 0;
@@ -899,12 +893,6 @@ String MetaMinimac::PerformFinalAnalysis()
     }while(true);
     NoRecords = NoRecordProcessed;
 
-    if (VcfPrintStringPointerLength > 0)
-    {
-        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
-        VcfPrintStringPointerLength = 0;
-    }
-    ifclose(vcfdosepartial);
 
 
     CloseStreamInputDosageFiles();
@@ -1036,12 +1024,28 @@ void MetaMinimac::ReadCurrentDosageData()
 
 void MetaMinimac::MetaImputeCurrentBuffer()
 {
+    savvy::variant out_record;
     for(int VariantId=0; VariantId<BufferNoVariants; VariantId++)
     {
         CurrentVariant = &BufferVariantList[VariantId];
         CreateMetaImputedData(VariantId);
-        PrintVariantInfo();
-        PrintMetaImputedData();
+
+        out_record = savvy::variant(
+            CurrentVariant->chr,
+            CurrentVariant->bp,
+            CurrentVariant->refAlleleString,
+            {CurrentVariant->altAlleleString},
+            CurrentVariant->name,
+            savvy::typed_value::missing_value<float>(),
+            {"PASS"});
+
+        CreateInfo(out_record);
+        SetMetaImputedData(out_record);
+        if (!metaDoseOut->write(out_record))
+        {
+            std::cout << "Error: failed to write meta dosage record\n";
+            exit(1);
+        }
     }
 }
 
@@ -1118,6 +1122,7 @@ void MetaMinimac::MetaImpute(int Sample)
         Dosage += Weight * InputData[index].CurrentHapDosage[Sample];
     }
     Dosage /= WeightSum;
+    Dosage = float(std::int16_t(Dosage * BinScalar + 0.5f)) / BinScalar; // bin dosages instead of manual VCF printing using %.3f
 
     CurrentMetaImputedDosage[Sample] = Dosage;
     CurrentHapDosageSum += Dosage;
@@ -1125,23 +1130,112 @@ void MetaMinimac::MetaImpute(int Sample)
 }
 
 
-void MetaMinimac::PrintMetaImputedData()
+void MetaMinimac::SetMetaImputedData(savvy::variant& out_var)
 {
-    for(int id=0; id<NoSamples; id++)
+    std::size_t stride = CurrentMetaImputedDosage.size() / NoSamples;
+
+    if (myUserVariables.GT || myUserVariables.HDS || myUserVariables.DS)
     {
-        if( InputData[0].SampleNoHaplotypes[id]==2 )
-            PrintDiploidDosage((CurrentMetaImputedDosage[2*id]), (CurrentMetaImputedDosage[2*id+1]));
+        sparse_dosages_.assign(CurrentMetaImputedDosage.begin(), CurrentMetaImputedDosage.end());
+
+        if (myUserVariables.GT)
+        {
+            sparse_gt_.assign(sparse_dosages_.value_data(), sparse_dosages_.value_data() + sparse_dosages_.non_zero_size(), sparse_dosages_.index_data(), sparse_dosages_.size(), [](float v)
+            {
+                if (savvy::typed_value::is_end_of_vector(v))
+                    return savvy::typed_value::end_of_vector_value<std::int8_t>();
+                return std::int8_t(v < 0.5f ? 0 : 1);
+            });
+            out_var.set_format("GT", sparse_gt_);
+        }
+
+        if (myUserVariables.HDS)
+        {
+            out_var.set_format("HDS", sparse_dosages_);
+        }
+
+        if (myUserVariables.DS)
+        {
+            savvy::stride_reduce(sparse_dosages_, sparse_dosages_.size() / NoSamples, savvy::plus_eov<float>());
+            out_var.set_format("DS", sparse_dosages_);
+        }
+    }
+
+    if (myUserVariables.GP)
+    {
+        if (stride == 1)
+        {
+            // All samples are haploid
+            dense_float_vec_.resize(NoSamples * 2);
+            for (std::size_t i = 0; i < NoSamples; ++i)
+            {
+                std::size_t dest_idx = i * 2;
+                dense_float_vec_[dest_idx] = 1.f - CurrentMetaImputedDosage[i];
+                dense_float_vec_[dest_idx + 1] = CurrentMetaImputedDosage[i];
+            }
+        }
+        else if (stride == 2)
+        {
+            dense_float_vec_.resize(NoSamples * 3);
+            for (std::size_t i = 0; i < NoSamples; ++i)
+            {
+                std::size_t src_idx = i * 2;
+                std::size_t dest_idx = i * 3;
+                float x = CurrentMetaImputedDosage[src_idx];
+                float y = CurrentMetaImputedDosage[src_idx + 1];
+                if (savvy::typed_value::is_end_of_vector(y))
+                {
+                    // haploid
+                    dense_float_vec_[dest_idx] = 1.f - x;
+                    dense_float_vec_[dest_idx + 1] = x;
+                    dense_float_vec_[dest_idx + 2] = y;
+                }
+                else
+                {
+                    // diploid
+                    dense_float_vec_[dest_idx] = (1.f - x) * (1.f - y);
+                    dense_float_vec_[dest_idx + 1] = x * (1.f - y) + y * (1.f - x);
+                    dense_float_vec_[dest_idx + 2] = x * y;
+                }
+            }
+        }
+
+        out_var.set_format("GP", dense_float_vec_);
+    }
+
+    if (myUserVariables.SD)
+    {
+        dense_float_vec_.resize(NoSamples);
+        if (stride == 1)
+        {
+            // All samples are haploid
+            for (std::size_t i = 0; i < NoSamples; ++i)
+            {
+                dense_float_vec_[i] = CurrentMetaImputedDosage[i] * (1.f - CurrentMetaImputedDosage[i]);
+            }
+
+            out_var.set_format("SD", dense_float_vec_);
+        }
+        else if (stride == 2)
+        {
+            for (std::size_t i = 0; i < CurrentMetaImputedDosage.size(); i += 2)
+            {
+                float x = CurrentMetaImputedDosage[i];
+                float y = CurrentMetaImputedDosage[i + 1];
+                if (savvy::typed_value::is_end_of_vector(y)) // haploid
+                    dense_float_vec_[i / 2] = x * (1.f - x);
+                else // diploid
+                   dense_float_vec_[i / 2] = x * (1.f - x) + y * (1.f - y);
+            }
+
+            out_var.set_format("SD", dense_float_vec_);
+        }
         else
-            PrintHaploidDosage((CurrentMetaImputedDosage[2*id]));
+        {
+            // TODO: suppress error excessive error messages
+            std::cerr << "Error: only haploid and diploid samples are supported when generating SD\n";
+        }
     }
-
-    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"\n");
-    if(VcfPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
-    {
-        ifprintf(vcfdosepartial,"%s",VcfPrintStringPointer);
-        VcfPrintStringPointerLength=0;
-    }
-
 }
 
 
@@ -1171,186 +1265,6 @@ void MetaMinimac::PrintMetaWeight()
         WeightPrintStringPointerLength = 0;
     }
 }
-
-
-void MetaMinimac::PrintDiploidDosage(float &x, float &y)
-{
-
-    bool colonIndex=false;
-    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"\t");
-
-    if(x<0.0005 && y<0.0005)
-    {
-        if(myUserVariables.GT)
-        {
-
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0|0");
-            colonIndex=true;
-        }
-        if(myUserVariables.DS)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-            colonIndex=true;
-        }
-        if(myUserVariables.HDS)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0,0");
-            colonIndex=true;
-        }
-        if(myUserVariables.GP)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            colonIndex=true;
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"1,0,0");
-        }
-        if(myUserVariables.SD)
-        {
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            colonIndex=true;
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-        }
-        return;
-    }
-
-
-    if(myUserVariables.GT)
-    {
-
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%d|%d",(x>0.5),(y>0.5));
-        colonIndex=true;
-    }
-    if(myUserVariables.DS)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f",x+ y);
-        colonIndex=true;
-    }
-    if(myUserVariables.HDS)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f,%.3f",x , y);
-        colonIndex=true;
-    }
-    if(myUserVariables.GP)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        colonIndex=true;
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f,%.3f,%.3f",(1-x)*(1-y),x*(1-y)+y*(1-x),x*y);
-    }
-    if(myUserVariables.SD)
-    {
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        colonIndex=true;
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f", x*(1-x) + y*(1-y));
-    }
-
-
-
-}
-
-void MetaMinimac::PrintHaploidDosage(float &x)
-{
-    bool colonIndex=false;
-    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"\t");
-
-    if(x<0.0005)
-    {
-        if(myUserVariables.GT)
-        {
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-            colonIndex=true;
-        }
-        if(myUserVariables.DS)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-            colonIndex=true;
-        }
-        if(myUserVariables.HDS)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-            colonIndex=true;
-        }
-        if(myUserVariables.GP)
-        {
-
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            colonIndex=true;
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"1,0");
-        }
-        if(myUserVariables.SD)
-        {
-            if(colonIndex)
-                VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-            colonIndex=true;
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"0");
-        }
-        return;
-
-    }
-
-
-
-    if(myUserVariables.GT)
-    {
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%d",(x>0.5));
-        colonIndex=true;
-    }
-    if(myUserVariables.DS)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f",x);
-        colonIndex=true;
-    }
-    if(myUserVariables.HDS)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f",x );
-        colonIndex=true;
-    }
-    if(myUserVariables.GP)
-    {
-
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        colonIndex=true;
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f,%.3f",1-x,x);
-    }
-    if(myUserVariables.SD)
-    {
-        if(colonIndex)
-            VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,":");
-        colonIndex=true;
-        VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength,"%.3f", x*(1-x));
-    }
-}
-
 
 //void MetaMinimac::PrintWeightForHaplotype(int haploId)
 //{
@@ -1390,20 +1304,10 @@ void MetaMinimac::PrintHaploidWeightForSample(int sampleId)
 
 }
 
-
-
-void MetaMinimac::PrintVariantInfo()
-{
-    VcfPrintStringPointerLength+=sprintf(VcfPrintStringPointer+VcfPrintStringPointerLength, "%s\t%d\t%s\t%s\t%s\t.\tPASS\t%s\t%s",
-                                         CurrentVariant->chr.c_str(), CurrentVariant->bp, CurrentVariant->name.c_str(),
-                                         CurrentVariant->refAlleleString.c_str(), CurrentVariant->altAlleleString.c_str(),
-                                         CreateInfo().c_str(), myUserVariables.formatStringForVCF.c_str());
-}
-
-string MetaMinimac::CreateInfo()
+void MetaMinimac::CreateInfo(savvy::variant& rec)
 {
     if(!myUserVariables.infoDetails)
-        return ".";
+        return;
 
     double hapSum = CurrentHapDosageSum, hapSumSq = CurrentHapDosageSumSq;
     double freq = hapSum*1.0/NoHaplotypes;
@@ -1415,26 +1319,20 @@ string MetaMinimac::CreateInfo()
         rsq = ovar / (evar + 1e-30);
     }
 
-    stringstream ss;
-
-    ss<<"NST=";
-    ss<<CurrentVariant->NoStudiesHasVariant;
+    rec.set_info("NST", CurrentVariant->NoStudiesHasVariant);
     for(int i=0; i<CurrentVariant->NoStudiesHasVariant; i++)
     {
-        ss<<";S";
-        ss<<CurrentVariant->StudiesHasVariant[i]+1;
+        rec.set_info("S" + std::to_string(CurrentVariant->StudiesHasVariant[i]+1), std::vector<std::int8_t>());
     }
 
     if(CurrentVariant->name == CommonGenotypeVariantNameList[NoCommonVariantsProcessed-1])
     {
-        ss<<";TRAINING";
+        rec.set_info("TRAINING", std::vector<std::int8_t>());
     }
 
-    ss<< ";AF=" << fixed << setprecision(5) << freq <<";MAF=";
-    ss<< fixed << setprecision(5) << maf <<";R2=";
-    ss<< fixed << setprecision(5) << rsq ;
-
-    return ss.str();
+    rec.set_info("AF", float(freq));
+    rec.set_info("MAF", float(maf));
+    rec.set_info("R2", float(rsq));
 }
 
 

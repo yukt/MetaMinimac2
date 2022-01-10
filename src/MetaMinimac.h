@@ -5,6 +5,9 @@
 #include "HaplotypeSet.h"
 
 #include <savvy/reader.hpp>
+#include <savvy/writer.hpp>
+
+#include <memory>
 
 using namespace std;
 
@@ -47,15 +50,16 @@ public:
     int NoCommonVariantsProcessed;
 
     // Output files
-    IFILE vcfdosepartial, vcfweightpartial;
+    std::unique_ptr<savvy::writer> metaDoseOut;
+    IFILE vcfweightpartial;
     IFILE vcfsnppartial, vcfrsqpartial;
     IFILE metaWeight;
-    char *VcfPrintStringPointer;
     char *WeightPrintStringPointer;
     char *RsqPrintStringPointer;
     char *SnpPrintStringPointer;
-    int VcfPrintStringPointerLength, WeightPrintStringPointerLength, RsqPrintStringPointerLength, SnpPrintStringPointerLength;
+    int WeightPrintStringPointerLength, RsqPrintStringPointerLength, SnpPrintStringPointerLength;
     int batchNo;
+    const int BinScalar = 1000;
     vector<IFILE> vcfrsqpartialList;
 
     variant* CurrentVariant;
@@ -63,6 +67,9 @@ public:
     vector<vector<double>> *PrevWeights;
     vector<vector<double>> *CurrWeights;
     vector<float> CurrentMetaImputedDosage;
+    savvy::compressed_vector<float> sparse_dosages_;
+    savvy::compressed_vector<std::int8_t> sparse_gt_;
+    std::vector<float> dense_float_vec_;
 
     float CurrentHapDosageSum, CurrentHapDosageSumSq;
 
@@ -130,14 +137,11 @@ public:
     void ReadCurrentDosageData();
     void CreateMetaImputedData(int VariantId);
     void MetaImpute(int Sample);
-    void PrintMetaImputedData();
+    void SetMetaImputedData(savvy::variant& out_var);
     void PrintMetaWeight();
-    void PrintVariantInfo();
     void PrintWeightVariantInfo();
 
-    string CreateInfo();
-    void PrintDiploidDosage(float &x, float &y);
-    void PrintHaploidDosage(float &x);
+    void CreateInfo(savvy::variant& rec);
     void PrintWeightForHaplotype(int haploId);
     void PrintDiploidWeightForSample(int sampleId);
     void PrintHaploidWeightForSample(int sampleId);
