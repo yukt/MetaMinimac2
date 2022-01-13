@@ -51,7 +51,7 @@ public:
 
     // Output files
     std::unique_ptr<savvy::writer> metaDoseOut;
-    IFILE vcfweightpartial;
+    std::unique_ptr<savvy::writer> metaWeightOut;
     IFILE vcfsnppartial, vcfrsqpartial;
     IFILE metaWeight;
     char *WeightPrintStringPointer;
@@ -122,15 +122,14 @@ public:
     void UpdateOneStepLeft(int SampleInBatch);
     void UpdateOneStepRight(int SampleInBatch);
     void OutputWeights();
-    void OutputPartialWeights();
-    void OutputAllWeights();
+    void OutputAllWeights(const std::string& out_file_path);
 
     String PerformFinalAnalysis();
     bool InitiateWeightsFromRecord();
     void ReadCurrentWeights();
     void CopyCurrentWeightsToPreviousWeights();
     void UpdateWeights();
-    void AppendtoMainWeightsFile();
+    bool AppendtoMainWeightsFile();
 
     void MetaImputeCurrentBuffer();
     void ClearCurrentBuffer();
@@ -138,8 +137,8 @@ public:
     void CreateMetaImputedData(int VariantId);
     void MetaImpute(int Sample);
     void SetMetaImputedData(savvy::variant& out_var);
-    void PrintMetaWeight();
-    void PrintWeightVariantInfo();
+    void SetMetaWeightVecs(std::vector<std::vector<float>>& wt_vecs);
+    void SetWeightVariantInfo(savvy::variant& dest);
 
     void CreateInfo(savvy::variant& rec);
     void PrintWeightForHaplotype(int haploId);

@@ -223,7 +223,7 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
         {"INFO","<ID=R2,Number=1,Type=Float,Description=\"Estimated Imputation Accuracy (R-square)\">"},
         {"INFO","<ID=TRAINING,Number=0,Type=Flag,Description=\"Marker was used to train meta-imputation weights\">"}};
 
-    headers.reserve(8);
+    headers.reserve(headers.size() + NoInPrefix + 7);
 
     if(myUserVariables.infoDetails)
     {
@@ -542,7 +542,8 @@ bool MetaMinimac::PerformWeightEstimation()
 
     if(batchNo > 1)
     {
-        AppendtoMainWeightsFile();
+        if (!AppendtoMainWeightsFile())
+          return false;
     }
     int time_tot = time(0) - start_time;
     printf("\n Weight Estimation Completed in %d hours, %d mins, %d seconds.\n",
@@ -788,61 +789,49 @@ void MetaMinimac::OutputWeights()
 {
     if(myUserVariables.VcfBuffer<NoSamples)
     {
-        OutputPartialWeights();
+        OutputAllWeights(std::string(myUserVariables.outfile.c_str()) + ".metaWeights.part." + std::to_string(batchNo) + (myUserVariables.gzip ? ".gz" : ""));
     }
     else
     {
-        OutputAllWeights();
+        OutputAllWeights(std::string(myUserVariables.outfile.c_str()) + ".metaWeights"+ (myUserVariables.gzip ? ".gz" : ""));
     }
 }
 
-void MetaMinimac::OutputPartialWeights()
+void MetaMinimac::OutputAllWeights(const std::string& out_file_path)
 {
-    stringstream ss;
-    ss << (batchNo);
-    string PartialWeightFileName(myUserVariables.outfile);
-    PartialWeightFileName += ".metaWeights.part."+(string)(ss.str()) + (myUserVariables.gzip ? ".gz" : "");
-    vcfweightpartial = ifopen(PartialWeightFileName.c_str(), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    WeightPrintStringPointerLength = 0;
+    std::time_t t = std::time(nullptr);
+    char datestr[11];
+    std::string filedate(datestr, std::strftime(datestr, sizeof(datestr), "%Y%m%d", std::localtime(&t)));
+    assert(filedate.size());
 
+    std::vector<std::pair<std::string, std::string>> headers = {
+        {"fileformat", "VCFv4.1"},
+        {"filedate", filedate},
+        {"source", std::string("MetaMinimac2.") + VERSION},
+        {"phasing", "full"},
+        {"contig", "<ID=" + finChromosome + ">"}};
+
+    for (int i=1; i<=NoInPrefix; i++)
+    {
+        headers.emplace_back("FORMAT","<ID=WT" + std::to_string(i) + ",Number=2,Type=Float,Description=\"Estimated Meta Weights on Study " + std::to_string(i) + ": [ weight on haplotype 1 , weight on haplotype 2 ]\">");
+    }
+
+    headers.emplace_back("metaMinimac_Command", myUserVariables.CommandLine.c_str());
+
+    savvy::writer out_weight_file(out_file_path, savvy::file::format::vcf, headers, {InputData[0].individualName.begin() + StartSamId,  InputData[0].individualName.begin() + EndSamId}, myUserVariables.gzip ? 6 : 0);
+    savvy::variant out_record;
+    std::vector<std::vector<float>> wt_vecs(NoInPrefix, std::vector<float>(Weights[0].size(), savvy::typed_value::end_of_vector_value<float>()));
     NoCommonVariantsProcessed = 0;
-
     while ( NoCommonVariantsProcessed  < NoCommonTypedVariants)
     {
         CurrWeights = &Weights[NoCommonVariantsProcessed];
-        PrintMetaWeight();
+        SetWeightVariantInfo(out_record);
+        SetMetaWeightVecs(wt_vecs);
+        for (int i=1; i<=NoInPrefix; ++i)
+            out_record.set_format("WT" + std::to_string(i), wt_vecs[i-1]);
+        out_weight_file << out_record;
         NoCommonVariantsProcessed++;
     }
-
-    if(WeightPrintStringPointerLength > 0)
-    {
-        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
-        WeightPrintStringPointerLength = 0;
-    }
-    ifclose(vcfweightpartial);
-}
-
-void MetaMinimac::OutputAllWeights()
-{
-    WeightPrintStringPointerLength=0;
-    vcfweightpartial = ifopen(myUserVariables.outfile + ".metaWeights"+ (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-
-    NoCommonVariantsProcessed = 0;
-
-    while ( NoCommonVariantsProcessed  < NoCommonTypedVariants)
-    {
-        CurrWeights = &Weights[NoCommonVariantsProcessed];
-        PrintWeightVariantInfo();
-        PrintMetaWeight();
-        NoCommonVariantsProcessed++;
-    }
-
-    if(WeightPrintStringPointerLength > 0)
-    {
-        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
-        WeightPrintStringPointerLength = 0;
-    }
-    ifclose(vcfweightpartial);
 
 }
 
@@ -1225,7 +1214,7 @@ void MetaMinimac::SetMetaImputedData(savvy::variant& out_var)
                 if (savvy::typed_value::is_end_of_vector(y)) // haploid
                     dense_float_vec_[i / 2] = x * (1.f - x);
                 else // diploid
-                   dense_float_vec_[i / 2] = x * (1.f - x) + y * (1.f - y);
+                    dense_float_vec_[i / 2] = x * (1.f - x) + y * (1.f - y);
             }
 
             out_var.set_format("SD", dense_float_vec_);
@@ -1239,30 +1228,38 @@ void MetaMinimac::SetMetaImputedData(savvy::variant& out_var)
 }
 
 
-void MetaMinimac::PrintMetaWeight()
+void MetaMinimac::SetMetaWeightVecs(std::vector<std::vector<float>>& wt_vecs)
 {
     for(int id=0; id<EndSamId-StartSamId; id++)
     {
         WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\t");
         if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
         {
-            PrintDiploidWeightForSample(id);
-//            PrintWeightForHaplotype(2*id);
-//            WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"|");
-//            PrintWeightForHaplotype(2*id+1);
+            vector<double>& WeightsHap1 = (*CurrWeights)[2*id];
+            vector<double>& WeightsHap2 = (*CurrWeights)[2*id+1];
+            double WeightSumHap1 = 0.0, WeightSumHap2 = 0.0;
+            for(int i=0; i<NoInPrefix; i++)
+            {
+                WeightSumHap1 += WeightsHap1[i];
+                WeightSumHap2 += WeightsHap2[i];
+            }
+
+            for(int i=0; i<NoInPrefix; i++)
+            {
+                wt_vecs[i][2*id] = WeightsHap1[i]/WeightSumHap1;
+                wt_vecs[i][2*id+1] = WeightsHap2[i]/WeightSumHap2;
+            }
         }
         else
         {
-            PrintHaploidWeightForSample(id);
-//            PrintWeightForHaplotype(2*id);
-        }
-    }
+            vector<double>& ThisCurrWeights = (*CurrWeights)[2*id];
+            double WeightSum = 0.0;
+            for(int i=0; i<NoInPrefix; i++)
+                WeightSum += ThisCurrWeights[i];
 
-    WeightPrintStringPointerLength+= sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\n");
-    if(WeightPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
-    {
-        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
-        WeightPrintStringPointerLength = 0;
+            for(int i=0; i<NoInPrefix; i++)
+                wt_vecs[i][2*id] = ThisCurrWeights[i]/WeightSum;
+        }
     }
 }
 
@@ -1336,79 +1333,82 @@ void MetaMinimac::CreateInfo(savvy::variant& rec)
 }
 
 
-void MetaMinimac::PrintWeightVariantInfo()
+void MetaMinimac::SetWeightVariantInfo(savvy::variant& dest)
 {
-    // "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT"
     variant& tempVariant = CommonTypedVariantList[NoCommonVariantsProcessed];
-    WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%s\t%d\t%s\t%s\t%s\t.\tPASS\t.\tWT1",
-                                            tempVariant.chr.c_str(), tempVariant.bp, tempVariant.name.c_str(),
-                                            tempVariant.refAlleleString.c_str(), tempVariant.altAlleleString.c_str());
-    for(int i=1; i<NoInPrefix; i++)
-    {
-        WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":WT%d", i+1);
-    }
-    if(WeightPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
-    {
-        ifprintf(vcfweightpartial, "%s", WeightPrintStringPointer);
-        WeightPrintStringPointerLength = 0;
-    }
+    dest = savvy::site_info(
+        tempVariant.chr,
+        tempVariant.bp,
+        tempVariant.refAlleleString,
+        {tempVariant.altAlleleString},
+        tempVariant.name,
+        savvy::typed_value::missing_value<float>(),
+        {"PASS"});
 }
 
-void MetaMinimac::AppendtoMainWeightsFile()
+bool MetaMinimac::AppendtoMainWeightsFile()
 {
+    if (batchNo < 1)
+        return std::cout << "\nError: not enough partial weight files\n", false;
+
     cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights" + (myUserVariables.gzip ? ".gz" : "") <<endl;
     int start_time = time(0);
-    WeightPrintStringPointerLength=0;
-    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""), "a", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    vector<IFILE> weightpartialList(batchNo);
 
+    std::vector<std::string> sample_ids;
+    std::list<savvy::reader> partial_weight_files;
     for(int i=1; i<=batchNo; i++)
     {
         stringstream ss;
         ss << (i);
         string PartialWeightFileName(myUserVariables.outfile);
         PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
-        weightpartialList[i-1] = ifopen(PartialWeightFileName.c_str(), "r");
+        partial_weight_files.emplace_back(PartialWeightFileName);
+        sample_ids.insert(sample_ids.end(), partial_weight_files.back().samples().begin(), partial_weight_files.back().samples().end());
     }
 
-    string line;
+    savvy::writer merged_out_file(std::string(myUserVariables.outfile.c_str()) + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""), savvy::file::format::vcf, partial_weight_files.front().headers(), sample_ids, myUserVariables.gzip ? 6 : 0);
+
+    std::vector<std::vector<float>> wt_vecs(NoInPrefix);
+    std::vector<float> tmp_vec;
+    savvy::variant record;
 
     NoCommonVariantsProcessed = 0;
     for(int i=0; i<NoCommonTypedVariants; i++)
     {
-        PrintWeightVariantInfo();
-        for(int j=1;j<=batchNo;j++)
+        for (auto jt = wt_vecs.begin(); jt != wt_vecs.end(); ++jt)
+            jt->clear();
+
+        for(auto jt = partial_weight_files.begin(); jt != partial_weight_files.end(); ++jt)
         {
-            line.clear();
-            weightpartialList[j-1]->readLine(line);
-            WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer + WeightPrintStringPointerLength,"%s",line.c_str());
+            if (!jt->read(record))
+                return std::cout << "\nError: not enough partial weight records\n", false;
+
+            for (int k = 0; k < wt_vecs.size(); ++k)
+            {
+                record.get_format("WT" + std::to_string(k + 1), tmp_vec);
+                wt_vecs[k].insert(wt_vecs[k].end(), tmp_vec.begin(), tmp_vec.end());
+            }
         }
-        WeightPrintStringPointerLength+=sprintf(WeightPrintStringPointer + WeightPrintStringPointerLength,"\n");
-        if(WeightPrintStringPointerLength > 0.9 * (float)(myUserVariables.PrintBuffer))
-        {
-            ifprintf(metaWeight, "%s", WeightPrintStringPointer);
-            WeightPrintStringPointerLength = 0;
-        }
+
+        for (int j = 0; j < wt_vecs.size(); ++j)
+            record.set_format("WT" + std::to_string(j + 1), wt_vecs[j]);
+
+        merged_out_file << record;
         NoCommonVariantsProcessed++;
-    }
-    if(WeightPrintStringPointerLength > 0)
-    {
-        ifprintf(metaWeight, "%s", WeightPrintStringPointer);
-        WeightPrintStringPointerLength = 0;
     }
 
     for(int i=1;i<=batchNo;i++)
     {
-        ifclose(weightpartialList[i-1]);
         stringstream ss;
         ss << (i);
         string tempFileIndex(myUserVariables.outfile);
         tempFileIndex += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
         remove(tempFileIndex.c_str());
     }
-    ifclose(metaWeight);
+
     int tot_time = time(0) - start_time;
     cout << " -- Successful (" << tot_time << " seconds) !!!" << endl;
+    return true;
 }
 
 void MetaMinimac::ClearCurrentBuffer()
