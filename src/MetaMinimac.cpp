@@ -502,9 +502,6 @@ bool MetaMinimac::PerformWeightEstimation()
     cout << "                               WEIGHT ESTIMATION                               " << endl;
     cout << " ------------------------------------------------------------------------------" << endl;
 
-    if(!OpenStreamOutputWeightFiles())
-        return false;
-
     int start_time = time(0);
 
     int maxVcfSample = myUserVariables.VcfBuffer;
@@ -551,42 +548,6 @@ bool MetaMinimac::PerformWeightEstimation()
 
     return true;
 }
-
-bool MetaMinimac::OpenStreamOutputWeightFiles()
-{
-    // output file for weights
-    metaWeight = ifopen(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""), "wb", myUserVariables.gzip ? InputFile::BGZF : InputFile::UNCOMPRESSED);
-    WeightPrintStringPointer = (char*)malloc(sizeof(char) * (myUserVariables.PrintBuffer));
-    WeightPrintStringPointerLength = 0;
-    if(metaWeight==NULL)
-    {
-        cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
-        return false;
-    }
-    ifprintf(metaWeight,"##fileformat=VCFv4.1\n");
-    time_t t = time(0);
-    struct tm * now = localtime( & t );
-    ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
-    ifprintf(metaWeight,"##source=MetaMinimac2.v%s\n",VERSION);
-    ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
-    for (int i=0; i<NoInPrefix; i++)
-    {
-        ifprintf(metaWeight,"##FORMAT=<ID=WT%d,Number=2,Type=Float,Description=\"Estimated Meta Weights on Study %d: [ weight on haplotype 1 , weight on haplotype 2 ]\">\n", i+1, i+1);
-    }
-
-    ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
-
-    ifprintf(metaWeight,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
-
-    for(int Id=0;Id<InputData[0].numSamples;Id++)
-    {
-        ifprintf(metaWeight,"\t%s",InputData[0].individualName[Id].c_str());
-    }
-    ifprintf(metaWeight,"\n");
-    ifclose(metaWeight);
-    return true;
-}
-
 
 void MetaMinimac::CalculateWeights()
 {
@@ -1232,7 +1193,6 @@ void MetaMinimac::SetMetaWeightVecs(std::vector<std::vector<float>>& wt_vecs)
 {
     for(int id=0; id<EndSamId-StartSamId; id++)
     {
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"\t");
         if(InputData[0].SampleNoHaplotypes[StartSamId+id]==2)
         {
             vector<double>& WeightsHap1 = (*CurrWeights)[2*id];
@@ -1273,33 +1233,6 @@ void MetaMinimac::SetMetaWeightVecs(std::vector<std::vector<float>>& wt_vecs)
 //    for(int i=1;i<NoInPrefix;i++)
 //        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,",%0.4f", ThisCurrWeights[i]/WeightSum);
 //}
-
-void MetaMinimac::PrintDiploidWeightForSample(int sampleId)
-{
-    vector<double>& WeightsHap1 = (*CurrWeights)[2*sampleId];
-    vector<double>& WeightsHap2 = (*CurrWeights)[2*sampleId+1];
-    double WeightSumHap1 = 0.0, WeightSumHap2 = 0.0;
-    for(int i=0; i<NoInPrefix; i++)
-    {
-        WeightSumHap1 += WeightsHap1[i];
-        WeightSumHap2 += WeightsHap2[i];
-    }
-    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f,%0.4f", WeightsHap1[0]/WeightSumHap1, WeightsHap2[0]/WeightSumHap2);
-    for(int i=1;i<NoInPrefix;i++)
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":%0.4f,%0.4f", WeightsHap1[i]/WeightSumHap1, WeightsHap2[i]/WeightSumHap2);
-}
-
-void MetaMinimac::PrintHaploidWeightForSample(int sampleId)
-{
-    vector<double>& ThisCurrWeights = (*CurrWeights)[2*sampleId];
-    double WeightSum = 0.0;
-    for(int i=0; i<NoInPrefix; i++)
-        WeightSum += ThisCurrWeights[i];
-    WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,"%0.4f", ThisCurrWeights[0]/WeightSum);
-    for(int i=1;i<NoInPrefix;i++)
-        WeightPrintStringPointerLength += sprintf(WeightPrintStringPointer+WeightPrintStringPointerLength,":%0.4f", ThisCurrWeights[i]/WeightSum);
-
-}
 
 void MetaMinimac::CreateInfo(savvy::variant& rec)
 {

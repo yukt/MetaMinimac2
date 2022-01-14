@@ -51,16 +51,8 @@ public:
 
     // Output files
     std::unique_ptr<savvy::writer> metaDoseOut;
-    std::unique_ptr<savvy::writer> metaWeightOut;
-    IFILE vcfsnppartial, vcfrsqpartial;
-    IFILE metaWeight;
-    char *WeightPrintStringPointer;
-    char *RsqPrintStringPointer;
-    char *SnpPrintStringPointer;
-    int WeightPrintStringPointerLength, RsqPrintStringPointerLength, SnpPrintStringPointerLength;
     int batchNo;
     const int BinScalar = 1000;
-    vector<IFILE> vcfrsqpartialList;
 
     variant* CurrentVariant;
     int PrevBp, CurrBp;
@@ -100,7 +92,6 @@ public:
     void CloseStreamInputDosageFiles();
     void CloseStreamInputWeightFiles();
     bool OpenStreamOutputDosageFiles();
-    bool OpenStreamOutputWeightFiles();
 
     bool LoadEmpVariantInfo();
     void FindCommonGenotypedVariants();
@@ -141,9 +132,6 @@ public:
     void SetWeightVariantInfo(savvy::variant& dest);
 
     void CreateInfo(savvy::variant& rec);
-    void PrintWeightForHaplotype(int haploId);
-    void PrintDiploidWeightForSample(int sampleId);
-    void PrintHaploidWeightForSample(int sampleId);
     void summary()
     {
         for (int i=0; i<NoInPrefix; i++)
