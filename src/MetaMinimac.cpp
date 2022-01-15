@@ -12,7 +12,7 @@ using namespace std;
 
 const int MAXBP = 999999999;
 
-String MetaMinimac::Analyze()
+std::string MetaMinimac::Analyze()
 {
     if(!myUserVariables.CheckValidity()) return "Command.Line.Error";
 
@@ -65,7 +65,7 @@ String MetaMinimac::Analyze()
 bool MetaMinimac::ParseInputVCFFiles()
 {
 
-    if (myUserVariables.inputFiles.Length())
+    if (myUserVariables.inputFiles.size())
     {
         size_t pos = 0;
         std::string delimiter(myUserVariables.FileDelimiter) ;
@@ -796,7 +796,7 @@ void MetaMinimac::OutputAllWeights(const std::string& out_file_path)
 
 }
 
-String MetaMinimac::PerformFinalAnalysis()
+std::string MetaMinimac::PerformFinalAnalysis()
 {
     cout << endl;
     cout << " ------------------------------------------------------------------------------" << endl;

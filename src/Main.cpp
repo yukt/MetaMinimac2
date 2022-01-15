@@ -1,5 +1,4 @@
 #include <getopt.h>
-#include "Parameters.h"
 #include "MetaMinimac.h"
 #include <unistd.h>
 
@@ -59,7 +58,7 @@ int main(int argc, char ** argv)
     }
 
     if (remaining_arg_count)
-        myAnalysis.myUserVariables.inputFiles.Clear();
+        myAnalysis.myUserVariables.inputFiles.clear();
 
     for (int i = 0; i < remaining_arg_count / 2; ++i)
         myAnalysis.myUserVariables.empInputFiles.emplace_back(argv[optind + i]);
@@ -72,21 +71,20 @@ int main(int argc, char ** argv)
 
     FILE *LogFile=NULL;
     if(myAnalysis.myUserVariables.log)
-        LogFile=freopen(myAnalysis.myUserVariables.outfile +".logfile","w",stdout);
+        LogFile=freopen((myAnalysis.myUserVariables.outfile +".logfile").c_str(),"w",stdout);
     dup2(fileno(stdout), fileno(stderr));
 
     MetaMinimacVersion();
     myAnalysis.myUserVariables.Status();
 
-    String compStatus;
-    String MySuccessStatus="Error";
+    std::string compStatus;
+    std::string MySuccessStatus="Error";
 
     MySuccessStatus = myAnalysis.Analyze();
 
     if(MySuccessStatus!="Success")
     {
         compStatus=MySuccessStatus;
-        PhoneHome::completionStatus(compStatus.c_str());
         return(-1);
     }
 
@@ -103,7 +101,6 @@ int main(int argc, char ** argv)
     cout<<"\n Thank You for using MetaMinimac2 !!! "<<endl<<endl;
 
     compStatus="Success";
-    PhoneHome::completionStatus(compStatus.c_str());
 
     return 0;
 }

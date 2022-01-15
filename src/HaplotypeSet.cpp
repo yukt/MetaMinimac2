@@ -1,5 +1,5 @@
 #include "HaplotypeSet.h"
-#include "assert.h"
+#include <cassert>
 
 #include <savvy/reader.hpp>
 
@@ -281,17 +281,10 @@ void HaplotypeSet::LoadLooVariant(const std::vector<std::int8_t>& gt, const std:
 
 bool HaplotypeSet::doesExistFile(string filename)
 {
-    IFILE ifs = ifopen(filename.c_str(), "r");
+    std::ifstream ifs(filename);
     if (ifs)
-    {
-        ifclose(ifs);
         return true;
-    }
-    else
-    {
-        ifclose(ifs);
-        return false;
-    }
+    return false;
 }
 
 bool HaplotypeSet::CheckSuffixFile(string prefix, const char* suffix, string &FinalName)

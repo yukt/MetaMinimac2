@@ -1,23 +1,26 @@
 #ifndef METAM_MYVARIABLES_H
 #define METAM_MYVARIABLES_H
 
-#include "StringBasics.h"
+#include <string>
+#include <cstring>
+#include <vector>
+#include <iostream>
 
 using namespace std;
 
 class UserVariables
 {
 public:
-    String inputFiles;
+    std::string inputFiles;
     std::vector<std::string> empInputFiles;
     std::vector<std::string> doseInputFiles;
-    String outfile;
-    String FileDelimiter;
-    String formatString;
+    std::string outfile;
+    std::string FileDelimiter;
+    std::string formatString;
     bool debug;
     int PrintBuffer, VcfBuffer;
     bool infoDetails;
-    String formatStringForVCF;
+    std::string formatStringForVCF;
     bool GT, DS, HDS, GP, SD;
     bool gzip, nobgzip;
     bool log;
@@ -74,12 +77,12 @@ public:
 
 
         char MyCommandLine[len];
-        strcpy(MyCommandLine,argv[0]);
+        std::strcpy(MyCommandLine,argv[0]);
 
         for (int i=1; i<argc; i++)
         {
-            strcat(MyCommandLine, " ");
-            strcat(MyCommandLine, argv[i]);
+            std::strcat(MyCommandLine, " ");
+            std::strcat(MyCommandLine, argv[i]);
         }
         CommandLine=MyCommandLine;
     }

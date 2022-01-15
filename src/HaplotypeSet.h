@@ -1,9 +1,8 @@
 #ifndef METAM_HAPLOTYPESET_H
 #define METAM_HAPLOTYPESET_H
 
-#include "VcfFileReader.h"
-#include "VcfHeader.h"
-#include "assert.h"
+#include <map>
+#include <cassert>
 
 #include <savvy/site_info.hpp>
 

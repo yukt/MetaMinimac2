@@ -82,7 +82,7 @@ public:
 
 
 
-    String Analyze();
+    std::string Analyze();
 
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
@@ -115,7 +115,7 @@ public:
     void OutputWeights();
     void OutputAllWeights(const std::string& out_file_path);
 
-    String PerformFinalAnalysis();
+    std::string PerformFinalAnalysis();
     bool InitiateWeightsFromRecord();
     void ReadCurrentWeights();
     void CopyCurrentWeightsToPreviousWeights();
