@@ -65,13 +65,13 @@ std::string MetaMinimac::Analyze()
 bool MetaMinimac::ParseInputVCFFiles()
 {
 
-    if (myUserVariables.inputFiles.size())
+    if (myUserVariables.inputPrefixes.size())
     {
         size_t pos = 0;
         std::string delimiter(myUserVariables.FileDelimiter) ;
         std::string token;
         int Count=0;
-        string tempName=myUserVariables.inputFiles.c_str();
+        string tempName=myUserVariables.inputPrefixes.c_str();
         while ((pos = tempName.find(delimiter)) != std::string::npos)
         {
             token = tempName.substr(0, pos);
@@ -180,7 +180,7 @@ void MetaMinimac::OpenStreamInputEmpiricalDoseFiles()
 
 void MetaMinimac::OpenStreamInputWeightFiles()
 {
-    InputWeightStream = new savvy::reader(std::string(myUserVariables.outfile.c_str()) + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""));
+    InputWeightStream = new savvy::reader(myUserVariables.outPrefix + ".metaWeights." + myUserVariables.outFileExtension);
     CurrentRecordFromWeight = new savvy::variant();
 }
 
@@ -200,7 +200,7 @@ void MetaMinimac::CloseStreamInputWeightFiles()
     delete CurrentRecordFromWeight;
     if(!myUserVariables.debug)
     {
-        string InputWeightFileName(myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : ""));
+        string InputWeightFileName(myUserVariables.outPrefix + ".metaWeights." + myUserVariables.outFileExtension);
         remove(InputWeightFileName.c_str());
     }
 }
@@ -245,10 +245,10 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
     headers.emplace_back("metaMinimac_Command", myUserVariables.CommandLine.c_str());
 
 
-    metaDoseOut.reset(new savvy::writer(std::string(myUserVariables.outfile.c_str()) + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : ""), savvy::file::format::vcf, headers, InputData[0].individualName, myUserVariables.gzip ? 6 : 0));
+    metaDoseOut.reset(new savvy::writer(myUserVariables.outPrefix + ".metaDose." + myUserVariables.outFileExtension, myUserVariables.outFileFormat(), headers, InputData[0].individualName, myUserVariables.outCompressionLevel()));
     if(!metaDoseOut->good())
     {
-        cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
+        cout << "\n\n ERROR !!! \n Could NOT create the following file : " << myUserVariables.outPrefix + ".metaDose." + myUserVariables.outFileExtension << endl;
         return false;
     }
 
@@ -750,11 +750,11 @@ void MetaMinimac::OutputWeights()
 {
     if(myUserVariables.VcfBuffer<NoSamples)
     {
-        OutputAllWeights(std::string(myUserVariables.outfile.c_str()) + ".metaWeights.part." + std::to_string(batchNo) + (myUserVariables.gzip ? ".gz" : ""));
+        OutputAllWeights(myUserVariables.outPrefix + ".metaWeights.part." + std::to_string(batchNo) + "." + myUserVariables.outFileExtension);
     }
     else
     {
-        OutputAllWeights(std::string(myUserVariables.outfile.c_str()) + ".metaWeights"+ (myUserVariables.gzip ? ".gz" : ""));
+        OutputAllWeights(myUserVariables.outPrefix + ".metaWeights." + myUserVariables.outFileExtension);
     }
 }
 
@@ -779,7 +779,7 @@ void MetaMinimac::OutputAllWeights(const std::string& out_file_path)
 
     headers.emplace_back("metaMinimac_Command", myUserVariables.CommandLine.c_str());
 
-    savvy::writer out_weight_file(out_file_path, savvy::file::format::vcf, headers, {InputData[0].individualName.begin() + StartSamId,  InputData[0].individualName.begin() + EndSamId}, myUserVariables.gzip ? 6 : 0);
+    savvy::writer out_weight_file(out_file_path, myUserVariables.outFileFormat(), headers, {InputData[0].individualName.begin() + StartSamId,  InputData[0].individualName.begin() + EndSamId}, myUserVariables.outCompressionLevel());
     savvy::variant out_record;
     std::vector<std::vector<float>> wt_vecs(NoInPrefix, std::vector<float>(Weights[0].size(), savvy::typed_value::end_of_vector_value<float>()));
     NoCommonVariantsProcessed = 0;
@@ -1284,7 +1284,7 @@ bool MetaMinimac::AppendtoMainWeightsFile()
     if (batchNo < 1)
         return std::cout << "\nError: not enough partial weight files\n", false;
 
-    cout << "\n Appending to final output weight file : " << myUserVariables.outfile + ".metaWeights" + (myUserVariables.gzip ? ".gz" : "") <<endl;
+    cout << "\n Appending to final output weight file : " << myUserVariables.outPrefix + ".metaWeights." + myUserVariables.outFileExtension << endl;
     int start_time = time(0);
 
     std::vector<std::string> sample_ids;
@@ -1293,13 +1293,13 @@ bool MetaMinimac::AppendtoMainWeightsFile()
     {
         stringstream ss;
         ss << (i);
-        string PartialWeightFileName(myUserVariables.outfile);
-        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
+        string PartialWeightFileName(myUserVariables.outPrefix);
+        PartialWeightFileName += ".metaWeights.part."+(string)(ss.str())+ "." +  myUserVariables.outFileExtension;
         partial_weight_files.emplace_back(PartialWeightFileName);
         sample_ids.insert(sample_ids.end(), partial_weight_files.back().samples().begin(), partial_weight_files.back().samples().end());
     }
 
-    savvy::writer merged_out_file(std::string(myUserVariables.outfile.c_str()) + ".metaWeights" + (myUserVariables.gzip ? ".gz" : ""), savvy::file::format::vcf, partial_weight_files.front().headers(), sample_ids, myUserVariables.gzip ? 6 : 0);
+    savvy::writer merged_out_file(myUserVariables.outPrefix + ".metaWeights." + myUserVariables.outFileExtension, myUserVariables.outFileFormat(), partial_weight_files.front().headers(), sample_ids, myUserVariables.outCompressionLevel());
 
     std::vector<std::vector<float>> wt_vecs(NoInPrefix);
     std::vector<float> tmp_vec;
@@ -1334,8 +1334,8 @@ bool MetaMinimac::AppendtoMainWeightsFile()
     {
         stringstream ss;
         ss << (i);
-        string tempFileIndex(myUserVariables.outfile);
-        tempFileIndex += ".metaWeights.part."+(string)(ss.str())+(myUserVariables.gzip ? ".gz" : "");
+        string tempFileIndex(myUserVariables.outPrefix);
+        tempFileIndex += ".metaWeights.part."+(string)(ss.str()) +  "." + myUserVariables.outFileExtension;
         remove(tempFileIndex.c_str());
     }
 
