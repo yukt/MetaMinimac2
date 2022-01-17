@@ -2,6 +2,7 @@
 
 rm -rf cget/ release-build/ install.log
 echo -e "Installing Dependencies - Libstatgen ..."
+cget ignore xz
 cget install -f requirements.txt &> install.log
 mkdir release-build
 cd release-build/

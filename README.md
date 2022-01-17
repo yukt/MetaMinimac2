@@ -13,31 +13,29 @@ bash install.sh
 The first step is to impute _**pre-phased**_ target haplotypes against reference panels separately using [Minimac4](https://github.com/statgen/Minimac4) with `--meta` option on, which will generate a `.empiricalDose.vcf.gz` file (which is required for MetaMinimac2) in addition to the `.dose.vcf.gz` file. Please see http://genome.sph.umich.edu/wiki/Minimac4 for detailed documentation for Minimac4.
 
 ```bash
-minimac4 --refHaps refPanelA.m3vcf \
-         --haps targetStudy.vcf \
-         --prefix PanelA.imputed \
-         --meta
+minimac4 refPanelA.m3vcf targetStudy.vcf \
+         --output PanelA.dose.vcf.gz \
+         --empirical-output PanelA.empiricalDose.vcf.gz
          
-minimac4 --refHaps refPanelB.m3vcf \
-         --haps targetStudy.vcf \
-         --prefix PanelB.imputed \
-         --meta
+minimac4 refPanelB.m3vcf targetStudy.vcf \
+         --output PanelB.dose.vcf.gz \
+         --empirical-output PanelB.empiricalDose.vcf.gz
 ```
 
 The second step is to integrate the imputed results using MetaMinimac2.
 
 ```bash
-MetaMinimac2 -i PanelA.imputed:PanelB.imputed -o A_B.meta.testrun
+MetaMinimac2 Panel{A,B}.empiricalDose.vcf.gz Panel{A,B}.dose.vcf.gz -o A_B.meta.testrun
 ```
 
 ## Options
 ```
 -i, --input  <prefix1:prefix2 ...>  (Required) Colon-separated prefixes of input data to meta-impute
 -o, --output <prefix>               (Required) Output prefix [MetaMinimac.Output.Prefix]
+-O, --outputFormat <fmt>            Output file format (vcf, vcf.gz, bcf, ubcf, sav, or usav) [vcf.gz]
 -f, --format <string>               Comma-separated output FORMAT tags [GT,DS,HDS]
 -p, --skipPhasingCheck              OFF by default. If ON, program will skip phasing consistency check before analysis. 
 -s, --skipInfo                      OFF by default. If ON, the INFO fields are removed from the output file
--n, --nobgzip                       OFF by default. If ON, output files will NOT be bgzipped
 -w, --weight                        OFF by default. If ON, weights will be saved in [MetaMinimac.Output.Prefix].metaWeights(.gz)
 -l, --log                           OFF by default. If ON, log will be written to $prefix.logfile
 -h, --help                          OFF by default. If ON, detailed documentation on options and usage will be displayed
