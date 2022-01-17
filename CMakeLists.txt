@@ -7,14 +7,13 @@ execute_process(COMMAND whoami OUTPUT_VARIABLE USER OUTPUT_STRIP_TRAILING_WHITES
 
 add_definitions(-DVERSION="${PROJECT_VERSION}" -DUSER="${USER}" -DDATE="${DATE}")
 
-find_package(ZLIB REQUIRED)
-find_library(STATGEN_LIBRARY StatGen)
+find_package(savvy REQUIRED)
 add_executable(MetaMinimac2
         src/Main.cpp
         src/MyVariables.h src/MarkovParameters.h src/simplex.h
         src/MetaMinimac.h src/MetaMinimac.cpp
         src/HaplotypeSet.h src/HaplotypeSet.cpp
         src/MarkovModel.h src/MarkovModel.cpp)
-target_link_libraries(MetaMinimac2 ${STATGEN_LIBRARY} ${ZLIB_LIBRARIES})
+target_link_libraries(MetaMinimac2 savvy)
 
 install(TARGETS MetaMinimac2 RUNTIME DESTINATION bin)

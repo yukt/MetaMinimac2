@@ -4,6 +4,11 @@
 #include "MyVariables.h"
 #include "HaplotypeSet.h"
 
+#include <savvy/reader.hpp>
+#include <savvy/writer.hpp>
+
+#include <memory>
+
 using namespace std;
 
 void logitTransform(vector<double> &From,vector<double> &To);
@@ -12,7 +17,6 @@ class MetaMinimac
 {
 public:
     UserVariables myUserVariables;
-    vector<String> InPrefixList;
     int NoInPrefix;
     string finChromosome;
 
@@ -22,8 +26,8 @@ public:
     int NoVariants, NoCommonTypedVariants;
 
     // Variables for input dosage file stream and records
-    vector<VcfFileReader*> InputDosageStream;
-    vector<VcfRecord*> CurrentRecordFromStudy;
+    vector<savvy::reader*> InputDosageStream;
+    vector<savvy::variant*> CurrentRecordFromStudy;
     vector<int> StudiesHasVariant;
     int CurrentFirstVariantBp;
     int NoStudiesHasVariant;
@@ -31,8 +35,8 @@ public:
     vector<HaplotypeSet> InputData;
 
     // Variables for input weight file stream and records
-    VcfFileReader* InputWeightStream;
-    VcfRecord* CurrentRecordFromWeight;
+    savvy::reader* InputWeightStream;
+    savvy::variant* CurrentRecordFromWeight;
     vector<vector<float>> WeightsFromCurrentRecord, WeightsFromPreviousRecord;
 
     // Process Part of Samples each time
@@ -46,22 +50,18 @@ public:
     int NoCommonVariantsProcessed;
 
     // Output files
-    IFILE vcfdosepartial, vcfweightpartial;
-    IFILE vcfsnppartial, vcfrsqpartial;
-    IFILE metaWeight;
-    char *VcfPrintStringPointer;
-    char *WeightPrintStringPointer;
-    char *RsqPrintStringPointer;
-    char *SnpPrintStringPointer;
-    int VcfPrintStringPointerLength, WeightPrintStringPointerLength, RsqPrintStringPointerLength, SnpPrintStringPointerLength;
+    std::unique_ptr<savvy::writer> metaDoseOut;
     int batchNo;
-    vector<IFILE> vcfrsqpartialList;
+    const int BinScalar = 1000;
 
     variant* CurrentVariant;
     int PrevBp, CurrBp;
     vector<vector<double>> *PrevWeights;
     vector<vector<double>> *CurrWeights;
     vector<float> CurrentMetaImputedDosage;
+    savvy::compressed_vector<float> sparse_dosages_;
+    savvy::compressed_vector<std::int8_t> sparse_gt_;
+    std::vector<float> dense_float_vec_;
 
     float CurrentHapDosageSum, CurrentHapDosageSumSq;
 
@@ -82,7 +82,7 @@ public:
 
 
 
-    String Analyze();
+    std::string Analyze();
 
     bool ParseInputVCFFiles();
     bool CheckSampleNameCompatibility();
@@ -92,13 +92,12 @@ public:
     void CloseStreamInputDosageFiles();
     void CloseStreamInputWeightFiles();
     bool OpenStreamOutputDosageFiles();
-    bool OpenStreamOutputWeightFiles();
 
     bool LoadEmpVariantInfo();
     void FindCommonGenotypedVariants();
     bool CheckPhasingConsistency();
     void FindCurrentMinimumPosition();
-    int IsVariantEqual(VcfRecord &Rec1, VcfRecord &Rec2);
+    int IsVariantEqual(savvy::variant &Rec1, savvy::variant &Rec2);
     void UpdateCurrentRecords();
 
     void LoadLooDosage();
@@ -114,32 +113,25 @@ public:
     void UpdateOneStepLeft(int SampleInBatch);
     void UpdateOneStepRight(int SampleInBatch);
     void OutputWeights();
-    void OutputPartialWeights();
-    void OutputAllWeights();
+    void OutputAllWeights(const std::string& out_file_path);
 
-    String PerformFinalAnalysis();
+    std::string PerformFinalAnalysis();
     bool InitiateWeightsFromRecord();
     void ReadCurrentWeights();
     void CopyCurrentWeightsToPreviousWeights();
     void UpdateWeights();
-    void AppendtoMainWeightsFile();
+    bool AppendtoMainWeightsFile();
 
     void MetaImputeCurrentBuffer();
     void ClearCurrentBuffer();
     void ReadCurrentDosageData();
     void CreateMetaImputedData(int VariantId);
     void MetaImpute(int Sample);
-    void PrintMetaImputedData();
-    void PrintMetaWeight();
-    void PrintVariantInfo();
-    void PrintWeightVariantInfo();
+    void SetMetaImputedData(savvy::variant& out_var);
+    void SetMetaWeightVecs(std::vector<std::vector<float>>& wt_vecs);
+    void SetWeightVariantInfo(savvy::variant& dest);
 
-    string CreateInfo();
-    void PrintDiploidDosage(float &x, float &y);
-    void PrintHaploidDosage(float &x);
-    void PrintWeightForHaplotype(int haploId);
-    void PrintDiploidWeightForSample(int sampleId);
-    void PrintHaploidWeightForSample(int sampleId);
+    void CreateInfo(savvy::variant& rec);
     void summary()
     {
         for (int i=0; i<NoInPrefix; i++)

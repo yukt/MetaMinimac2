@@ -1,23 +1,29 @@
 #ifndef METAM_MYVARIABLES_H
 #define METAM_MYVARIABLES_H
 
-#include "StringBasics.h"
+#include <string>
+#include <cstring>
+#include <vector>
+#include <iostream>
+#include <savvy/file.hpp>
 
 using namespace std;
 
 class UserVariables
 {
 public:
-    String inputFiles;
-    String outfile;
-    String FileDelimiter;
-    String formatString;
+    std::string inputPrefixes;
+    std::vector<std::string> empInputFiles;
+    std::vector<std::string> doseInputFiles;
+    std::string outPrefix;
+    std::string FileDelimiter;
+    std::string formatString;
     bool debug;
     int PrintBuffer, VcfBuffer;
     bool infoDetails;
-    String formatStringForVCF;
+    std::string formatStringForVCF;
     bool GT, DS, HDS, GP, SD;
-    bool gzip, nobgzip;
+    std::string outFileExtension;
     bool log;
 
     // check phasing consistency
@@ -27,8 +33,8 @@ public:
 
     UserVariables()
     {
-        inputFiles = "";
-        outfile = "MetaMinimac.Output";
+        inputPrefixes = "";
+        outPrefix = "MetaMinimac.Output";
         formatString = "GT,DS,HDS";
         debug=false;
         FileDelimiter=":";
@@ -41,8 +47,7 @@ public:
         HDS=false;
         SD=false;
         debug=false;
-        gzip = true;
-        nobgzip = false;
+        outFileExtension = "vcf.gz";
         VcfBuffer = 1000;
         log = false;
         hapcheck = true;
@@ -51,12 +56,12 @@ public:
     void Status()
     {
         cout << " Command Line Options: " << endl;
-        printf( "      --input [%s],\n", inputFiles.c_str());
-        printf( "      --output [%s],\n", outfile.c_str());
+        printf( "      --input [%s],\n", inputPrefixes.c_str());
+        printf( "      --output [%s],\n", outPrefix.c_str());
+        printf( "      --outputFormat  %s,\n", outFileExtension.c_str());
         printf( "      --format [%s],\n", formatString.c_str());
         printf( "      --skipPhasingCheck %s,\n", hapcheck?"[OFF]":"[ON]");
         printf( "      --skipInfo %s,\n", infoDetails?"[OFF]":"[ON]");
-        printf( "      --nobgzip  %s,\n", nobgzip?"[ON]":"[OFF]");
         printf( "      --weight   %s,\n", debug?"[ON]":"[OFF]");
         printf( "      --log      %s.", log?"[ON]":"[OFF]");
         printf("\n\n");
@@ -72,12 +77,12 @@ public:
 
 
         char MyCommandLine[len];
-        strcpy(MyCommandLine,argv[0]);
+        std::strcpy(MyCommandLine,argv[0]);
 
         for (int i=1; i<argc; i++)
         {
-            strcat(MyCommandLine, " ");
-            strcat(MyCommandLine, argv[i]);
+            std::strcat(MyCommandLine, " ");
+            std::strcat(MyCommandLine, argv[i]);
         }
         CommandLine=MyCommandLine;
     }
@@ -150,14 +155,17 @@ public:
             colonIndex=true;
         }
 
-
-        if(nobgzip)
-            gzip=false;
-
-
-        if (inputFiles == "")
+        if (inputPrefixes == "" && empInputFiles.empty())
         {
             cout<< " Missing -i [--input], a required parameter.\n\n";
+            cout<< " Try -h [--help] for usage ...\n\n";
+            cout<< " Program Exiting ...\n\n";
+            return false;
+        }
+
+        if (!empInputFiles.empty() && empInputFiles.size() != doseInputFiles.size())
+        {
+            cout<< " Missing input files.\n\n";
             cout<< " Try -h [--help] for usage ...\n\n";
             cout<< " Program Exiting ...\n\n";
             return false;
@@ -173,7 +181,23 @@ public:
         }
 
         return true;
-    };
+    }
+
+    int outCompressionLevel() const
+    {
+      if (outFileExtension == "vcf.gz" || outFileExtension == "bcf" || outFileExtension == "sav")
+          return 6;
+      return 0;
+    }
+
+    savvy::file::format outFileFormat() const
+    {
+      if (outFileExtension == "bcf" || outFileExtension == "ubcf")
+          return savvy::file::format::bcf;
+      else if (outFileExtension == "sav" || outFileExtension == "usav")
+          return savvy::file::format::sav;
+      return savvy::file::format::vcf;
+    }
 };
 
 #endif //METAM_MYVARIABLES_H

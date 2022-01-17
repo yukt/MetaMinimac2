@@ -1,9 +1,10 @@
 #ifndef METAM_HAPLOTYPESET_H
 #define METAM_HAPLOTYPESET_H
 
-#include "VcfFileReader.h"
-#include "VcfHeader.h"
-#include "assert.h"
+#include <map>
+#include <cassert>
+
+#include <savvy/site_info.hpp>
 
 using namespace std;
 
@@ -34,7 +35,6 @@ class HaplotypeSet
 public:
 
     // File Name Variables
-    String InfilePrefix;
     string DoseFileName;
     string EmpDoseFileName;
 
@@ -72,12 +72,12 @@ public:
     bool        GetSampleInformationfromHDS             (string filename);
     void        LoadEmpVariantList                      ();
     void        ClearEmpVariantList                     ();
-    void        LoadCurrentGT                           (VcfRecordGenotype &ThisGenotype);
-    void        LoadLooVariant                          (VcfRecordGenotype &ThisGenotype,int loonumReadRecords, int StartSamId, int EndSamId);
-    bool        LoadSampleNames                         (string prefix);
+    void        LoadCurrentGT                           (savvy::variant &ThisGenotype);
+    void        LoadLooVariant                          (const std::vector<std::int8_t>& gt, const std::vector<float>& lds,int loonumReadRecords, int StartSamId, int EndSamId);
+    bool        LoadSampleNames                         (std::string empDoseFN, std::string doseFN);
     bool        doesExistFile                           (string filename);
 
-    void        LoadData                                (int VariantId, VcfRecordGenotype &ThisGenotype, int StartSamId, int EndSamId);
+    void        LoadData                                (int VariantId, savvy::variant &ThisGenotype);
     void        GetData                                 (int VariantId);
     void        ClearBuffer                             ();
 };

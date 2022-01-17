@@ -1,1 +1,1 @@
-statgen/libStatGen --cmake dep/libstatgen.cmake
+statgen/savvy@af1bf44b5c9be693f38c8e62a24d4ea38f3ac4a7
