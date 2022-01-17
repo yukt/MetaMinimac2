@@ -1015,7 +1015,7 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     }
     else
     {
-        CurrentMetaImputedDosage.resize(2*NoSamples);
+        CurrentMetaImputedDosage.resize(2*NoSamples, savvy::typed_value::end_of_vector_value<float>());
         for (int j=0; j<CurrentVariant->NoStudiesHasVariant; j++)
         {
             int index = CurrentVariant->StudiesHasVariant[j];
