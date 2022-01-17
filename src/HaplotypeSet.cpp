@@ -15,8 +15,8 @@ bool HaplotypeSet::LoadSampleNames(std::string empDoseFN, std::string doseFN)
     int tempNoSamples=numSamples;
     vector<string> tempindividualName=individualName;
     vector<int> tempSampleNoHaplotypes=SampleNoHaplotypes;
-    GetSampleInformation(EmpDoseFileName);
-    if(!CheckSampleConsistency(tempNoSamples,tempindividualName,tempSampleNoHaplotypes,DoseFileName,EmpDoseFileName)) return false;
+    if (!GetSampleInformation(EmpDoseFileName)) return false;
+    if (!CheckSampleConsistency(tempNoSamples,tempindividualName,tempSampleNoHaplotypes,DoseFileName,EmpDoseFileName)) return false;
 
     return true;
 
@@ -267,7 +267,7 @@ void HaplotypeSet::LoadCurrentGT(savvy::variant & rec)
 
 void HaplotypeSet::LoadLooVariant(const std::vector<std::int8_t>& gt, const std::vector<float>& lds, int loonumReadRecords, int StartSamId, int EndSamId)
 {
-    assert(gt.size() == numActualHaps);
+    assert(gt.size() >= numActualHaps);
     assert(gt.size() == lds.size());
     int ploidy = numActualHaps / numSamples;
     int start_i = StartSamId * ploidy;
