@@ -1071,7 +1071,9 @@ void MetaMinimac::CreateMetaImputedData(int VariantId)
     CurrentMetaImputedDosage.clear();
     if(CurrentVariant->NoStudiesHasVariant==1)
     {
-        CurrentMetaImputedDosage=InputData[CurrentVariant->StudiesHasVariant[0]].BufferHapDosage[0];
+        int index = CurrentVariant->StudiesHasVariant[0];
+        InputData[index].GetData(VariantId);
+        CurrentMetaImputedDosage=InputData[index].CurrentHapDosage;
         for(int i=0; i<2*NoSamples; i++)
         {
             CurrentHapDosageSum += CurrentMetaImputedDosage[i];
