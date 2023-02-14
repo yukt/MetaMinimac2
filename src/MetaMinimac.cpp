@@ -219,13 +219,13 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
         cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaDose.vcf"+(myUserVariables.gzip ? ".gz" : "") <<endl;
         return false;
     }
-    ifprintf(vcfdosepartial,"##fileformat=VCFv4.1\n");
+    ifprintf(vcfdosepartial,"##fileformat=VCFv4.2\n");
     time_t t = time(0);
     struct tm * now = localtime( & t );
     ifprintf(vcfdosepartial,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
     ifprintf(vcfdosepartial,"##source=MetaMinimac2.v%s\n",VERSION);
     ifprintf(vcfdosepartial,"##contig=<ID=%s>\n", finChromosome.c_str());
-    ifprintf(vcfdosepartial,"##INFO=<ID=AF,Number=1,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
+    ifprintf(vcfdosepartial,"##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated Alternate Allele Frequency\">\n");
     ifprintf(vcfdosepartial,"##INFO=<ID=MAF,Number=1,Type=Float,Description=\"Estimated Minor Allele Frequency\">\n");
     ifprintf(vcfdosepartial,"##INFO=<ID=R2,Number=1,Type=Float,Description=\"Estimated Imputation Accuracy (R-square)\">\n");
     ifprintf(vcfdosepartial,"##INFO=<ID=TRAINING,Number=0,Type=Flag,Description=\"Marker was used to train meta-imputation weights\">\n");
@@ -239,11 +239,11 @@ bool MetaMinimac::OpenStreamOutputDosageFiles()
     if(myUserVariables.GT)
         ifprintf(vcfdosepartial,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
     if(myUserVariables.DS)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=DS,Number=1,Type=Float,Description=\"Estimated Alternate Allele Dosage : [P(0/1)+2*P(1/1)]\">\n");
+        ifprintf(vcfdosepartial,"##FORMAT=<ID=DS,Number=A,Type=Float,Description=\"Estimated Alternate Allele Dosage : [P(0/1)+2*P(1/1)]\">\n");
     if(myUserVariables.HDS)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=HDS,Number=2,Type=Float,Description=\"Estimated Haploid Alternate Allele Dosage \">\n");
+        ifprintf(vcfdosepartial,"##FORMAT=<ID=HDS,Number=.,Type=Float,Description=\"Estimated Haploid Alternate Allele Dosage \">\n");
     if(myUserVariables.GP)
-        ifprintf(vcfdosepartial,"##FORMAT=<ID=GP,Number=3,Type=Float,Description=\"Estimated Posterior Probabilities for Genotypes 0/0, 0/1 and 1/1 \">\n");
+        ifprintf(vcfdosepartial,"##FORMAT=<ID=GP,Number=G,Type=Float,Description=\"Estimated Posterior Probabilities for Genotypes 0/0, 0/1 and 1/1 \">\n");
     if(myUserVariables.SD)
         ifprintf(vcfdosepartial,"##FORMAT=<ID=SD,Number=1,Type=Float,Description=\"Variance of Posterior Genotype Probabilities\">\n");
 
@@ -569,7 +569,7 @@ bool MetaMinimac::OpenStreamOutputWeightFiles()
         cout <<"\n\n ERROR !!! \n Could NOT create the following file : "<< myUserVariables.outfile + ".metaWeights"+(myUserVariables.gzip ? ".gz" : "") <<endl;
         return false;
     }
-    ifprintf(metaWeight,"##fileformat=VCFv4.1\n");
+    ifprintf(metaWeight,"##fileformat=VCFv4.2\n");
     time_t t = time(0);
     struct tm * now = localtime( & t );
     ifprintf(metaWeight,"##filedate=%d.%d.%d\n",(now->tm_year + 1900),(now->tm_mon + 1) ,now->tm_mday);
@@ -577,7 +577,7 @@ bool MetaMinimac::OpenStreamOutputWeightFiles()
     ifprintf(metaWeight,"##contig=<ID=%s>\n", finChromosome.c_str());
     for (int i=0; i<NoInPrefix; i++)
     {
-        ifprintf(metaWeight,"##FORMAT=<ID=WT%d,Number=2,Type=Float,Description=\"Estimated Meta Weights on Study %d: [ weight on haplotype 1 , weight on haplotype 2 ]\">\n", i+1, i+1);
+        ifprintf(metaWeight,"##FORMAT=<ID=WT%d,Number=.,Type=Float,Description=\"Estimated Meta Weights on Study %d: [ weight on haplotype 1 , weight on haplotype 2 ]\">\n", i+1, i+1);
     }
 
     ifprintf(metaWeight,"##metaMinimac_Command=%s\n",myUserVariables.CommandLine.c_str());
