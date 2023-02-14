@@ -50,15 +50,13 @@ The meta-imputed result will be saved in `[MetaMinimac.Output.Prefix].metaDose.v
 When `--weight` is ON, the weights for meta-imputation will be saved in `[MetaMinimac.Output.Prefix].metaWeights.gz`. The weight file is also in VCF format, which is good for individual filtering by [vcftools](https://vcftools.github.io) or [bcftools](http://samtools.github.io/bcftools/bcftools.html). In the format field, `WT1` stands for the weight on reference panel 1 (which is related to input files with prefix1), `WT2` stands for the weight on reference panel 2, etc.
 
 ## Imputation Server
-[Michigan Imputation Server](imputationserver.sph.umich.edu) offers the option to generate `.empiricalDose.vcf.gz` file for the convenience of downstream meta-imputation using MetaMinimac2. 
+[Michigan Imputation Server](imputationserver.sph.umich.edu) and [TOPMed Imputation Server](https://imputation.biodatacatalyst.nhlbi.nih.gov) offer the option to generate `.empiricalDose.vcf.gz` file for the convenience of downstream meta-imputation using MetaMinimac2. 
 
 Imputation steps: 
 1. Choose `Genotype Imputation (Meta-Imputation Option)` in the `Run` tab;
 2. Set up the reference panel, input files, etc. following the [instruction here](https://imputationserver.readthedocs.io/en/latest/getting-started/);
 3. Tick the checkbox `Generate Meta-imputation file` before `Submit Job`;
 4. After the job has finished, imputation results can be downloaded from the server. The zip archive contains both `.dose.vcf.gz` and `.empiricalDose.vcf.gz` files.
-
-[TOPMed Imputation Server](https://imputation.biodatacatalyst.nhlbi.nih.gov) will stage the same option soon.
 
 
 ## Important Notes
